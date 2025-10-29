@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import morgan from 'morgan'
 //import auditoriaRoutes from './routes/auditoria.routes.js'
 import mesasRoutes from './routes/mesas.route.js'
 //import pagosRoutes from './routes/pagos.routes.js'
@@ -10,6 +11,9 @@ import usuariosRoutes from './routes/usuarios.routes.js'
 
 
 const app = express()
+
+// Request logging
+app.use(morgan('dev'))
 
 // CORS configuration
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'

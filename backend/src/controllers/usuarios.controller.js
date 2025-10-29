@@ -50,7 +50,7 @@ export const getUsuarioById = async (req, res) => {
 
 // Crear un nuevo usuario
 export const createUsuario = async (req, res) => {
-  const { nombre, correo, contrasena, rol, fecha_registro } = req.body
+  const { nombre, correo, contrasena, rol } = req.body
 
   if (!contrasena) {
     return res.status(400).json({ error: 'contrasena es requerida' })
@@ -58,6 +58,9 @@ export const createUsuario = async (req, res) => {
 
   // Hashear la contraseña antes de guardar
   const contrasena_hash = await bcrypt.hash(contrasena, 10)
+
+  // Fecha de registro: usar la fecha/hora actual del servidor (ISO 8601)
+  const fecha_registro = new Date().toISOString()
 
   const { data, error } = await supabase
     .from('usuarios')

@@ -11,11 +11,9 @@ const router = express.Router()
 
 router.get('/', getMesas)
 router.get('/:id', getMesaById)
-router.post('/', createMesa)
-router.post('/:id', updateMesa)
-router.post('/:id', deleteMesa)
+// Protected write routes
 router.post('/', authMiddleware, createMesa)
-router.post('/:id', authMiddleware, updateMesa)
-router.post('/:id', authMiddleware, deleteMesa)
+router.put('/:id', authMiddleware, updateMesa)
+router.delete('/:id', authMiddleware, deleteMesa)
 
 export default router

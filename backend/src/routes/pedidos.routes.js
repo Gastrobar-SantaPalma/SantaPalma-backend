@@ -11,8 +11,8 @@ const router = express.Router()
 
 router.get('/', getPedidos)
 router.get('/:id', getPedidoById)
-router.post('/', createPedido)
-router.post('/:id', updatePedido)
+// Create and modify orders require authentication
+router.post('/', authMiddleware, createPedido)
 router.put('/:id', authMiddleware, updatePedido)
 router.delete('/:id', authMiddleware, deletePedido)
 

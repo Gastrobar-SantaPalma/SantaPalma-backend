@@ -10,7 +10,6 @@ export const getUsuarios = async (req, res) => {
       id_usuario,
       nombre,
       correo,
-      contrasena_hash,
       rol,
       fecha_registro
     `)
@@ -33,9 +32,8 @@ export const getUsuarioById = async (req, res) => {
       id_usuario,
       nombre,
       correo,
-      contrasena_hash,
       rol,
-      fecha_registro )
+      fecha_registro
     `)
     .eq('id_usuario', id)
     .single()
@@ -68,7 +66,6 @@ export const createUsuario = async (req, res) => {
       id_usuario,
       nombre,
       correo,
-      contrasena_hash,
       rol,
       fecha_registro
     `)
@@ -100,7 +97,6 @@ export const updateUsuario = async (req, res) => {
       id_usuario,
       nombre,
       correo,
-      contrasena_hash,
       rol,
       fecha_registro
     `)

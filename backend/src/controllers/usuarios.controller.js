@@ -2,6 +2,11 @@ import supabase from '../config/supabaseClient.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
+// Simple in-memory rate limiter for login attempts per email
+const failedLogins = {} // { [email]: { count, firstAttemptTs } }
+const MAX_ATTEMPTS = 5
+const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
+
 // Obtener todos los usuarios
 export const getUsuarios = async (req, res) => {
   const { data, error } = await supabase
@@ -132,6 +137,19 @@ export const loginUsuario = async (req, res) => {
     const { correo, contrasena } = req.body
     if (!correo || !contrasena) return res.status(400).json({ error: 'correo y contrasena son requeridos' })
 
+    // Rate limiting by email
+    const now = Date.now()
+    const entry = failedLogins[correo]
+    if (entry) {
+      if (now - entry.firstAttemptTs < WINDOW_MS && entry.count >= MAX_ATTEMPTS) {
+        return res.status(429).json({ error: 'Demasiados intentos. Intenta más tarde.' })
+      }
+      if (now - entry.firstAttemptTs >= WINDOW_MS) {
+        // reset window
+        delete failedLogins[correo]
+      }
+    }
+
     const { data, error } = await supabase
       .from('usuarios')
       .select(`id_usuario, nombre, correo, contrasena_hash, rol`)
@@ -139,19 +157,29 @@ export const loginUsuario = async (req, res) => {
       .single()
 
     if (error || !data) {
+      // record failed attempt
+      if (!failedLogins[correo]) failedLogins[correo] = { count: 1, firstAttemptTs: now }
+      else failedLogins[correo].count++
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
     const usuario = data
 
     const match = await bcrypt.compare(contrasena, usuario.contrasena_hash)
-    if (!match) return res.status(401).json({ error: 'Credenciales inválidas' })
+    if (!match) {
+      if (!failedLogins[correo]) failedLogins[correo] = { count: 1, firstAttemptTs: now }
+      else failedLogins[correo].count++
+      return res.status(401).json({ error: 'Credenciales inválidas' })
+    }
 
     const payload = { id: usuario.id_usuario, correo: usuario.correo, rol: usuario.rol }
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '8h' })
 
-    // No devolver el hash
-    delete usuario.contrasena_hash
+  // No devolver el hash
+  delete usuario.contrasena_hash
+
+  // on successful login reset failed attempts for this email
+  if (failedLogins[correo]) delete failedLogins[correo]
 
     res.status(200).json({ token, usuario })
   } catch (err) {

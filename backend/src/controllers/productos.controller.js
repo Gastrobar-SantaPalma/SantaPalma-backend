@@ -72,56 +72,114 @@ export const getProductoById = async (req, res) => {
 
 // Crear un nuevo producto
 export const createProducto = async (req, res) => {
-  const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
+  try {
+    const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
 
-  const { data, error } = await supabase
-    .from('productos')
-    .insert([
-      { nombre, descripcion, precio, id_categoria, disponible, imagen_url }
-    ])
-    .select(`
-      id_producto,
-      nombre,
-      descripcion,
-      precio,
-      disponible,
-      imagen_url,
-      id_categoria
-    `)
+    // required fields
+    if (!nombre) return res.status(400).json({ error: 'nombre es requerido' })
+    if (precio === undefined || precio === null) return res.status(400).json({ error: 'precio es requerido' })
+    if (!id_categoria) return res.status(400).json({ error: 'id_categoria es requerido' })
 
-  if (error) {
-    console.error('Error al crear producto:', error.message)
-    return res.status(400).json({ error: error.message })
+    // precio must be a number
+    const precioNum = Number(precio)
+    if (Number.isNaN(precioNum) || precioNum < 0) return res.status(400).json({ error: 'precio inválido' })
+
+    // check duplicate product name within same category (case-insensitive)
+    const { data: existing, error: selErr } = await supabase
+      .from('productos')
+      .select('id_producto')
+      .ilike('nombre', nombre)
+      .eq('id_categoria', id_categoria)
+
+    if (selErr) {
+      console.error('Error checking existing producto:', selErr.message)
+      return res.status(500).json({ error: 'Error interno' })
+    }
+
+    if (existing && existing.length > 0) {
+      return res.status(409).json({ error: 'Ya existe un producto con ese nombre en la categoría' })
+    }
+
+    const { data, error } = await supabase
+      .from('productos')
+      .insert([
+        { nombre, descripcion, precio: precioNum, id_categoria, disponible, imagen_url }
+      ])
+      .select(`
+        id_producto,
+        nombre,
+        descripcion,
+        precio,
+        disponible,
+        imagen_url,
+        id_categoria
+      `)
+
+    if (error) {
+      console.error('Error al crear producto:', error.message)
+      return res.status(400).json({ error: error.message })
+    }
+
+    res.status(201).json(data[0])
+  } catch (err) {
+    console.error('Error interno al crear producto:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(201).json(data[0])
 }
 
 // Actualizar un producto existente
 export const updateProducto = async (req, res) => {
   const { id } = req.params
-  const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
+  try {
+    const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
 
-  const { data, error } = await supabase
-    .from('productos')
-    .update({ nombre, descripcion, precio, id_categoria, disponible, imagen_url })
-    .eq('id_producto', id)
-    .select(`
-      id_producto,
-      nombre,
-      descripcion,
-      precio,
-      disponible,
-      imagen_url,
-      id_categoria
-    `)
+    // Prevent setting required fields to null if provided
+    if (nombre === null) return res.status(400).json({ error: 'nombre no puede ser null' })
+    if (precio === null) return res.status(400).json({ error: 'precio no puede ser null' })
+    if (id_categoria === null) return res.status(400).json({ error: 'id_categoria no puede ser null' })
 
-  if (error) {
-    console.error('Error al actualizar producto:', error.message)
-    return res.status(400).json({ error: error.message })
+    // If nombre provided, check duplicates excluding current product
+    if (nombre) {
+      const { data: dup, error: dupErr } = await supabase
+        .from('productos')
+        .select('id_producto')
+        .ilike('nombre', nombre)
+        .neq('id_producto', id)
+
+      if (dupErr) {
+        console.error('Error checking duplicate producto:', dupErr.message)
+        return res.status(500).json({ error: 'Error interno' })
+      }
+
+      if (dup && dup.length > 0) return res.status(409).json({ error: 'Ya existe un producto con ese nombre' })
+    }
+
+    const updates = { nombre, descripcion, precio, id_categoria, disponible, imagen_url }
+
+    const { data, error } = await supabase
+      .from('productos')
+      .update(updates)
+      .eq('id_producto', id)
+      .select(`
+        id_producto,
+        nombre,
+        descripcion,
+        precio,
+        disponible,
+        imagen_url,
+        id_categoria
+      `)
+
+    if (error) {
+      console.error('Error al actualizar producto:', error.message)
+      return res.status(400).json({ error: error.message })
+    }
+
+    res.status(200).json(data[0])
+  } catch (err) {
+    console.error('Error interno al actualizar producto:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(200).json(data[0])
 }
 
 // Eliminar un producto

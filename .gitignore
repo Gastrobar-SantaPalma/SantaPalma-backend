@@ -49,3 +49,7 @@ docker-compose.override.yml
 supabase/.branches
 supabase/.temp
 supabase/config.toml
+
+
+.github
+/memory-bank

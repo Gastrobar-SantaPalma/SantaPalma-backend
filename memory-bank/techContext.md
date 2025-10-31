@@ -1,5 +1,12 @@
 # Tech Context
 
+- Node.js (ES modules), Express.
+- Supabase client for DB and realtime.
+- bcryptjs for password hashing, jsonwebtoken for JWTs.
+- dotenv used for environment variables (`.env`).
+- Tests: none yet—consider adding Jest + supertest.
+# Tech Context
+
 Stack y herramientas
 - Node.js (ES modules) + Express
 - Supabase (Postgres, Storage, Realtime)

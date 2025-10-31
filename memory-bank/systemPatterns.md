@@ -1,5 +1,12 @@
 # System Patterns
 
+- Project type: Node.js + Express (ES modules). Entry: `backend/src/server.js`.
+- DB: Supabase client (`backend/src/config/supabaseClient.js`) used in controllers via `supabase.from('<table>')`.
+- Auth: JWT signed with `process.env.JWT_SECRET`; passwords hashed with `bcryptjs` stored in `contrasena_hash`.
+- Routes: Spanish resource names (`usuarios`, `productos`, `categorias`, `pedidos`, `mesas`). Write routes require `authMiddleware`; admin-only routes use `requireRole('admin')`.
+- Error handling: controllers return `res.status(code).json({ error })` consistently.
+# System Patterns
+
 Arquitectura general
 - Backend: Node.js + Express (ES modules). Entrada principal: `backend/src/server.js`.
 - Base de datos y servicios: Supabase (client en `backend/src/config/supabaseClient.js`).

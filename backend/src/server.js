@@ -7,6 +7,7 @@ import mesasRoutes from './routes/mesas.route.js'
 import pedidosRoutes from './routes/pedidos.routes.js'
 import productosRoutes from './routes/productos.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
+import authRoutes from './routes/auth.routes.js'
 
 
 
@@ -40,6 +41,7 @@ app.use('/api/mesas', mesasRoutes)
 app.use('/api/pedidos', pedidosRoutes)
 app.use('/api/productos', productosRoutes)
 app.use('/api/usuarios', usuariosRoutes)
+app.use('/api/auth', authRoutes)
 
 
 app.listen(process.env.PORT || 4000, () => {

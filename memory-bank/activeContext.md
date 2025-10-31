@@ -20,3 +20,12 @@ Commits y flujo de trabajo
 
 Bloqueos conocidos
 - Falta de tests y CI; cambios de esquema requieren coordinación con DB/infra.
+
+Tarea de desarrollo activa (memoria)
+- Tarea actual: **Fix auth & signup (HU0.1)** — status: in-progress.
+	- Objetivos: crear `/auth/signup` con validación de contraseña (>=8, 1 mayúscula, 1 número, 1 símbolo), detectar correo duplicado y devolver `409`, hashear contraseña con bcrypt y devolver `201` con `id_usuario`.
+	- Rama objetivo: `feature/HU0.1-signup` (crear si no existe).
+	- Reglas: commits atómicos por cambio; push a `feature/<hu-id>`; abrir PR cuando DoD esté completa.
+
+Registro de progreso
+- Quick cleanup realizado y comiteado en `feature/david` (remoción de `contrasena_hash`, limpieza de rutas).

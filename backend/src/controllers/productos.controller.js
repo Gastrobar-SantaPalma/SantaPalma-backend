@@ -2,25 +2,45 @@ import supabase from '../config/supabaseClient.js'
 
 // Obtener todos los productos (incluye datos de la categoría)
 export const getProductos = async (req, res) => {
-  const { data, error } = await supabase
-    .from('productos')
-    .select(`
-      id_producto,
-      nombre,
-      descripcion,
-      precio,
-      disponible,
-      imagen_url,
-      id_categoria,
-      categorias ( id_categoria, nombre )
-    `)
+  try {
+    // Query params: page, limit, category, search
+    const { page = 1, limit = 12, category, search } = req.query
+    const p = Math.max(parseInt(page, 10) || 1, 1)
+    const l = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 100)
+    const start = (p - 1) * l
+    const end = start + l - 1
 
-  if (error) {
-    console.error('Error al obtener productos:', error.message)
-    return res.status(500).json({ error: error.message })
+    let query = supabase
+      .from('productos')
+      .select(`
+        id_producto,
+        nombre,
+        descripcion,
+        precio,
+        disponible,
+        imagen_url,
+        id_categoria,
+        categorias ( id_categoria, nombre )
+      `, { count: 'exact' })
+
+    if (category) query = query.eq('id_categoria', category)
+    if (search) query = query.ilike('nombre', `%${search}%`)
+
+    const { data, count, error } = await query.range(start, end)
+
+    if (error) {
+      console.error('Error al obtener productos:', error.message)
+      return res.status(500).json({ error: error.message })
+    }
+
+    const total = count || 0
+    const totalPages = Math.ceil(total / l) || 0
+
+    res.status(200).json({ page: p, limit: l, total, totalPages, products: data })
+  } catch (err) {
+    console.error('Error en getProductos:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(200).json(data)
 }
 
 // Obtener un producto por ID

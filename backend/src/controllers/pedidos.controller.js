@@ -1,37 +1,208 @@
 import supabase from '../config/supabaseClient.js'
 import { calcularTotal } from '../utils/calculateTotal.js'
+import { logPedidoEvent } from '../services/pedidoEvents.service.js'
 
 // Obtener todos los pedidos
 export const getPedidos = async (req, res) => {
-  const { data, error } = await supabase
-    .from('pedidos')
-    .select('id_pedido, estado, total, fecha_pedido')
-  
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+  try {
+    const { page = 1, limit = 20, estado, id_mesa, id_cliente, from, to } = req.query
+    const p = Math.max(parseInt(page, 10) || 1, 1)
+    const l = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100)
+    const start = (p - 1) * l
+    const end = start + l - 1
+
+    let query = supabase
+      .from('pedidos')
+      .select('id_pedido, id_cliente, id_mesa, estado, total, fecha_pedido, updated_at, items', { count: 'exact' })
+
+    if (estado) query = query.eq('estado', estado)
+    if (id_mesa) query = query.eq('id_mesa', id_mesa)
+    if (id_cliente) query = query.eq('id_cliente', id_cliente)
+    if (from) query = query.gte('fecha_pedido', from)
+    if (to) query = query.lte('fecha_pedido', to)
+
+    query = query.order('fecha_pedido', { ascending: false })
+
+    const { data, count, error } = await query.range(start, end)
+    if (error) {
+      console.error('Error al obtener pedidos:', error.message)
+      return res.status(500).json({ error: error.message })
+    }
+
+    const total = count || 0
+    const totalPages = Math.ceil(total / l) || 0
+    res.status(200).json({ page: p, limit: l, total, totalPages, pedidos: data })
+  } catch (err) {
+    console.error('Error en getPedidos:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
+}
+
+// Patch estado (staff/admin)
+export const updatePedidoEstado = async (req, res) => {
+  const { id } = req.params
+  const { estado } = req.body
+
+  if (!estado) return res.status(400).json({ error: 'estado es requerido' })
+
+  // Allowed transitions
+  const transitions = {
+    'pendiente': ['preparacion'],
+    'preparacion': ['listo'],
+    'listo': ['entregado']
+  }
+
+  try {
+    const { data: existing, error: existingErr } = await supabase
+      .from('pedidos')
+      .select('id_pedido, estado')
+      .eq('id_pedido', id)
+      .maybeSingle()
+
+    if (existingErr) return res.status(500).json({ error: 'Error interno' })
+    if (!existing) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    const prev = existing.estado
+    // If same state, return no-op
+    if (prev === estado) return res.status(200).json({ message: 'Estado sin cambios', pedido: existing })
+
+    // Validate transition
+    const allowed = transitions[prev] || []
+    if (!allowed.includes(estado) && prev !== null) {
+      return res.status(400).json({ error: `Transición inválida de ${prev} a ${estado}` })
+    }
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ estado })
+      .eq('id_pedido', id)
+      .select('*')
+
+    if (error) return res.status(400).json({ error: error.message })
+
+    // Log event
+    try { await logPedidoEvent({ id_pedido: id, from: prev, to: estado, description: `Cambio de estado ${prev} → ${estado}` }) } catch (e) {}
+
+    res.status(200).json(data[0])
+  } catch (err) {
+    console.error('Error en updatePedidoEstado:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
+}
+
+// Patch mesa (staff/admin)
+export const updatePedidoMesa = async (req, res) => {
+  const { id } = req.params
+  let { id_mesa } = req.body
+
+  if (!id_mesa) return res.status(400).json({ error: 'id_mesa es requerido' })
+
+  try {
+    // verify mesa exists
+    const { data: mesa, error: mesaErr } = await supabase
+      .from('mesas')
+      .select('id_mesa')
+      .eq('id_mesa', id_mesa)
+      .maybeSingle()
+
+    if (mesaErr) return res.status(500).json({ error: 'Error interno verificando mesa' })
+    if (!mesa) return res.status(400).json({ error: 'Mesa no encontrada' })
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ id_mesa })
+      .eq('id_pedido', id)
+      .select('*')
+
+    if (error) return res.status(400).json({ error: error.message })
+
+    // Log event
+    try { await logPedidoEvent({ id_pedido: id, from: null, to: null, description: `Cambio de mesa a ${id_mesa}` }) } catch (e) {}
+
+    res.status(200).json(data[0])
+  } catch (err) {
+    console.error('Error en updatePedidoMesa:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
 }
 
 // Obtener un pedido por ID
 export const getPedidoById = async (req, res) => {
   const { id } = req.params
+  try {
+    // Fetch main pedido row including items and timestamps
+    const { data: pedido, error: pedidoErr } = await supabase
+      .from('pedidos')
+      .select(`
+        id_pedido,
+        id_cliente,
+        id_mesa,
+        estado,
+        total,
+        fecha_pedido,
+        updated_at,
+        items
+      `)
+      .eq('id_pedido', id)
+      .maybeSingle()
 
-  const { data, error } = await supabase
-    .from('pedidos')
-    .select(`
-      id_pedido,
-      estado,
-      total,
-      fecha_pedido )
-    `)
-    .eq('id_pedido', id)
-    .single()
+    if (pedidoErr) {
+      console.error('Error al obtener pedido:', pedidoErr.message)
+      return res.status(500).json({ error: 'Error interno' })
+    }
 
-  if (error) {
-    console.error('Error al obtener pedido:', error.message)
-    return res.status(404).json({ error: 'Pedido no encontrado' })
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    // Try to fetch recent events from common audit/history tables if they exist
+    const historyCandidates = ['pedido_eventos', 'pedidos_historial', 'pedido_historial', 'auditoria']
+    let events = []
+
+    for (const table of historyCandidates) {
+      try {
+        const { data: evs, error: evErr } = await supabase
+          .from(table)
+          .select('id, id_pedido, descripcion, estado_anterior, estado_nuevo, created_at')
+          .eq('id_pedido', id)
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        if (evErr) {
+          // table might not exist or permission denied; try next candidate
+          continue
+        }
+
+        if (evs && evs.length > 0) {
+          events = evs.map(e => ({
+            id: e.id || null,
+            description: e.descripcion || (e.estado_anterior ? `Cambio ${e.estado_anterior} → ${e.estado_nuevo}` : undefined),
+            from: e.estado_anterior || null,
+            to: e.estado_nuevo || null,
+            at: e.created_at || null
+          }))
+          break
+        }
+      } catch (errTable) {
+        // ignore and continue
+        continue
+      }
+    }
+
+    // Fallback: if no events found, create a minimal history from pedido timestamps
+    if (events.length === 0) {
+      events = [{
+        id: null,
+        description: 'Pedido creado',
+        from: null,
+        to: pedido.estado || null,
+        at: pedido.fecha_pedido || pedido.updated_at || null
+      }]
+    }
+
+    res.status(200).json({ pedido, history: events })
+  } catch (err) {
+    console.error('Error en getPedidoById:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(200).json(data)
 }
 
 // Crear un nuevo pedido
@@ -148,6 +319,14 @@ export const createPedido = async (req, res) => {
       return res.status(400).json({ error: error.message })
     }
 
+    // Log event (best-effort)
+    try {
+      const newPedido = data[0]
+      await logPedidoEvent({ id_pedido: newPedido.id_pedido || newPedido.id, from: null, to: newPedido.estado || 'pendiente', description: 'Pedido creado' })
+    } catch (errLog) {
+      // already handled inside service; ignore
+    }
+
     res.status(201).json(data[0])
   } catch (err) {
     console.error('Error interno al crear pedido:', err)
@@ -160,6 +339,20 @@ export const updatePedido = async (req, res) => {
   const { id } = req.params
   try {
     let { id_cliente, id_mesa, estado, total, items } = req.body
+
+    // Fetch current pedido to detect estado changes
+    const { data: existingPedido, error: existingErr } = await supabase
+      .from('pedidos')
+      .select('id_pedido, estado')
+      .eq('id_pedido', id)
+      .maybeSingle()
+
+    if (existingErr) {
+      console.error('Error obteniendo pedido previo:', existingErr.message)
+      return res.status(500).json({ error: 'Error interno' })
+    }
+
+    const previousEstado = existingPedido ? existingPedido.estado : null
 
     // If items provided, validate them similarly to create
     if (items !== undefined) {
@@ -259,6 +452,17 @@ export const updatePedido = async (req, res) => {
     }
 
     if (!data || data.length === 0) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    // If estado changed, log event (best-effort)
+    try {
+      const updated = data[0]
+      const newEstado = updated.estado
+      if (previousEstado !== null && newEstado && previousEstado !== newEstado) {
+        await logPedidoEvent({ id_pedido: id, from: previousEstado, to: newEstado, description: `Cambio de estado ${previousEstado} → ${newEstado}` })
+      }
+    } catch (errLog) {
+      // swallow logging errors
+    }
 
     res.status(200).json(data[0])
   } catch (err) {

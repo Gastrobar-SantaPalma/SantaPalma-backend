@@ -54,6 +54,11 @@ app.use('/api/auth', authRoutes)
 app.use('/api/admin', adminRoutes)
 
 
-app.listen(process.env.PORT || 4000, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${process.env.PORT || 4000}`)
-})
+// Export app for testing; only listen when not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(process.env.PORT || 4000, () => {
+    console.log(`🚀 Servidor corriendo en puerto ${process.env.PORT || 4000}`)
+  })
+}
+
+export default app

@@ -137,8 +137,7 @@ export const wompiWebhook = async (req, res) => {
           .from('pagos')
           .select('*')
           .eq('id_pedido', pedidoId)
-          // Some DBs may not have 'created_at' if migration wasn't applied; fallback to ordering by primary key
-          .order('id_pago', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(1)
 
         if (!pagoByPedidoErr && pagoByPedido && pagoByPedido.length > 0) {

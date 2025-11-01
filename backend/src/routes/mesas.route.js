@@ -6,7 +6,8 @@ import {
     updateMesa,
     deleteMesa
 } from '../controllers/mesas.controller.js'
-import { authMiddleware } from '../middlewares/auth.middleware.js'
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js'
+import { generateQr } from '../controllers/qr.controller.js'
 const router = express.Router()
 
 router.get('/', getMesas)
@@ -15,5 +16,8 @@ router.get('/:id', getMesaById)
 router.post('/', authMiddleware, createMesa)
 router.put('/:id', authMiddleware, updateMesa)
 router.delete('/:id', authMiddleware, deleteMesa)
+
+// Admin: generate QR for a mesa (PNG by default, PDF if ?format=pdf)
+router.post('/:id/generate-qr', authMiddleware, requireRole('admin'), generateQr)
 
 export default router

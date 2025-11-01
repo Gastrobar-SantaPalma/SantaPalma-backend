@@ -1,12 +1,34 @@
 import supabase from '../config/supabaseClient.js'
+import crypto from 'crypto'
+
+function getStoragePathFromPublicUrl(publicUrl, bucket) {
+  if (!publicUrl) return null
+  try {
+    // Supabase public url format: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+    const marker = `/storage/v1/object/public/${bucket}/`
+    const idx = publicUrl.indexOf(marker)
+    if (idx === -1) return null
+    return publicUrl.substring(idx + marker.length)
+  } catch (err) {
+    return null
+  }
+}
 
 // Obtener todos los productos (incluye datos de la categoría)
 export const getProductos = async (req, res) => {
   try {
     // Query params: page, limit, category, search
     const { page = 1, limit = 12, category, search } = req.query
-    const p = Math.max(parseInt(page, 10) || 1, 1)
-    const l = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 100)
+
+    // Validate page and limit
+    const pRaw = String(page)
+    const lRaw = String(limit)
+    if (!/^[0-9]+$/.test(pRaw) || !/^[0-9]+$/.test(lRaw)) {
+      return res.status(400).json({ error: 'page and limit must be positive integers' })
+    }
+
+    const p = Math.max(parseInt(pRaw, 10) || 1, 1)
+    const l = Math.min(Math.max(parseInt(lRaw, 10) || 12, 1), 100)
     const start = (p - 1) * l
     const end = start + l - 1
 
@@ -22,9 +44,29 @@ export const getProductos = async (req, res) => {
         id_categoria,
         categorias ( id_categoria, nombre )
       `, { count: 'exact' })
+    // If category filter is provided, verify the category exists
+    if (category) {
+      // category can be sent as id or name; expect id_categoria numeric in this API
+      const { data: catData, error: catErr } = await supabase
+        .from('categorias')
+        .select('id_categoria')
+        .eq('id_categoria', category)
+        .limit(1)
 
-    if (category) query = query.eq('id_categoria', category)
+      if (catErr) {
+        console.error('Error checking category existence:', catErr.message)
+        return res.status(500).json({ error: 'Error interno' })
+      }
+
+      if (!catData || catData.length === 0) {
+        return res.status(404).json({ error: 'Categoría no encontrada' })
+      }
+
+      query = query.eq('id_categoria', category)
+    }
     if (search) query = query.ilike('nombre', `%${search}%`)
+    // Order products alphabetically by name (HU1.2 requirement)
+    query = query.order('nombre', { ascending: true })
 
     const { data, count, error } = await query.range(start, end)
 
@@ -73,7 +115,33 @@ export const getProductoById = async (req, res) => {
 // Crear un nuevo producto
 export const createProducto = async (req, res) => {
   try {
-    const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
+    const { nombre, descripcion, precio, id_categoria, disponible } = req.body
+    let { imagen_url } = req.body
+
+    // If an image file was uploaded via multer, upload it to Supabase Storage
+    if (req.file) {
+      try {
+        const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
+        const original = req.file.originalname || 'image'
+        const safeName = original.replace(/[^a-zA-Z0-9_.-]/g, '_')
+        const filename = `productos/${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${safeName}`
+
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from(bucket)
+          .upload(filename, req.file.buffer, { contentType: req.file.mimetype })
+
+        if (uploadErr) {
+          console.error('Error subiendo imagen a storage:', uploadErr.message || uploadErr)
+          return res.status(500).json({ error: 'Error subiendo imagen' })
+        }
+
+        const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filename)
+        imagen_url = publicUrlData?.publicUrl || null
+      } catch (upErr) {
+        console.error('Error procesando imagen:', upErr)
+        return res.status(500).json({ error: 'Error interno al procesar imagen' })
+      }
+    }
 
     // required fields
     if (!nombre) return res.status(400).json({ error: 'nombre es requerido' })
@@ -131,7 +199,59 @@ export const createProducto = async (req, res) => {
 export const updateProducto = async (req, res) => {
   const { id } = req.params
   try {
-    const { nombre, descripcion, precio, id_categoria, disponible, imagen_url } = req.body
+    const { nombre, descripcion, precio, id_categoria, disponible } = req.body
+    let { imagen_url } = req.body
+
+    // If an image file was uploaded via multer, upload to Supabase Storage and override imagen_url
+    if (req.file) {
+      // For update case, fetch existing product to possibly delete old image after new upload
+      let existingProduct = null
+      try {
+        const { data: exData } = await supabase
+          .from('productos')
+          .select('imagen_url')
+          .eq('id_producto', id)
+          .single()
+        existingProduct = exData
+      } catch (e) {
+        // ignore error; we will still attempt upload
+        existingProduct = null
+      }
+      try {
+        const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
+        const original = req.file.originalname || 'image'
+        const safeName = original.replace(/[^a-zA-Z0-9_.-]/g, '_')
+        const filename = `productos/${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${safeName}`
+
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from(bucket)
+          .upload(filename, req.file.buffer, { contentType: req.file.mimetype })
+
+        if (uploadErr) {
+          console.error('Error subiendo imagen a storage:', uploadErr.message || uploadErr)
+          return res.status(500).json({ error: 'Error subiendo imagen' })
+        }
+
+        const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filename)
+        imagen_url = publicUrlData?.publicUrl || null
+
+        // If we uploaded a new image successfully and there was an existing image, try to remove it
+        if (existingProduct && existingProduct.imagen_url) {
+          try {
+            const oldPath = getStoragePathFromPublicUrl(existingProduct.imagen_url, bucket)
+            if (oldPath) {
+              await supabase.storage.from(bucket).remove([oldPath])
+            }
+          } catch (rmErr) {
+            // Log and continue — deletion failure should not block update
+            console.warn('No se pudo eliminar imagen anterior:', rmErr)
+          }
+        }
+      } catch (upErr) {
+        console.error('Error procesando imagen:', upErr)
+        return res.status(500).json({ error: 'Error interno al procesar imagen' })
+      }
+    }
 
     // Prevent setting required fields to null if provided
     if (nombre === null) return res.status(400).json({ error: 'nombre no puede ser null' })
@@ -154,7 +274,7 @@ export const updateProducto = async (req, res) => {
       if (dup && dup.length > 0) return res.status(409).json({ error: 'Ya existe un producto con ese nombre' })
     }
 
-    const updates = { nombre, descripcion, precio, id_categoria, disponible, imagen_url }
+  const updates = { nombre, descripcion, precio, id_categoria, disponible, imagen_url }
 
     const { data, error } = await supabase
       .from('productos')

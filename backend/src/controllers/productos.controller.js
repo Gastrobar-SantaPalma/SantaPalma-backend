@@ -121,6 +121,7 @@ export const createProducto = async (req, res) => {
     // If an image file was uploaded via multer, upload it to Supabase Storage
     if (req.file) {
       try {
+        console.log('createProducto: received file ->', { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size })
         const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
         const original = req.file.originalname || 'image'
         const safeName = original.replace(/[^a-zA-Z0-9_.-]/g, '_')
@@ -130,12 +131,15 @@ export const createProducto = async (req, res) => {
           .from(bucket)
           .upload(filename, req.file.buffer, { contentType: req.file.mimetype })
 
+        console.log('createProducto: upload result', { uploadData, uploadErr })
+
         if (uploadErr) {
           console.error('Error subiendo imagen a storage:', uploadErr.message || uploadErr)
           return res.status(500).json({ error: 'Error subiendo imagen' })
         }
 
         const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filename)
+        console.log('createProducto: publicUrlData', publicUrlData)
         imagen_url = publicUrlData?.publicUrl || null
       } catch (upErr) {
         console.error('Error procesando imagen:', upErr)
@@ -306,15 +310,45 @@ export const updateProducto = async (req, res) => {
 export const deleteProducto = async (req, res) => {
   const { id } = req.params
 
-  const { error } = await supabase
-    .from('productos')
-    .delete()
-    .eq('id_producto', id)
+  try {
+    // Try to fetch existing product to remove image from storage if present
+    const { data: existing, error: fetchErr } = await supabase
+      .from('productos')
+      .select('imagen_url')
+      .eq('id_producto', id)
+      .maybeSingle()
 
-  if (error) {
-    console.error('Error al eliminar producto:', error.message)
-    return res.status(400).json({ error: error.message })
+    if (fetchErr) {
+      console.error('Error obteniendo producto previo a eliminación:', fetchErr.message)
+      // continue to attempt deletion in DB below
+    }
+
+    if (existing && existing.imagen_url) {
+      try {
+        const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
+        const oldPath = getStoragePathFromPublicUrl(existing.imagen_url, bucket)
+        if (oldPath) {
+          const { error: rmErr } = await supabase.storage.from(bucket).remove([oldPath])
+          if (rmErr) console.warn('No se pudo eliminar imagen del storage:', rmErr)
+        }
+      } catch (rmEx) {
+        console.warn('Error intentando eliminar imagen del storage:', rmEx)
+      }
+    }
+
+    const { error } = await supabase
+      .from('productos')
+      .delete()
+      .eq('id_producto', id)
+
+    if (error) {
+      console.error('Error al eliminar producto:', error.message)
+      return res.status(400).json({ error: error.message })
+    }
+
+    res.status(204).send()
+  } catch (err) {
+    console.error('Error interno al eliminar producto:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(204).send()
 }

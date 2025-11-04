@@ -88,28 +88,34 @@ export const getProductos = async (req, res) => {
 // Obtener un producto por ID
 export const getProductoById = async (req, res) => {
   const { id } = req.params
+  try {
+    const { data, error } = await supabase
+      .from('productos')
+      .select(`
+        id_producto,
+        nombre,
+        descripcion,
+        precio,
+        disponible,
+        imagen_url,
+        id_categoria,
+        categorias ( id_categoria, nombre )
+      `)
+      .eq('id_producto', id)
+      .maybeSingle()
 
-  const { data, error } = await supabase
-    .from('productos')
-    .select(`
-      id_producto,
-      nombre,
-      descripcion,
-      precio,
-      disponible,
-      imagen_url,
-      id_categoria,
-      categorias ( id_categoria, nombre )
-    `)
-    .eq('id_producto', id)
-    .single()
+    if (error) {
+      console.error('Error al obtener producto:', error.message)
+      return res.status(500).json({ error: 'Error interno' })
+    }
 
-  if (error) {
-    console.error('Error al obtener producto:', error.message)
-    return res.status(404).json({ error: 'Producto no encontrado' })
+    if (!data) return res.status(404).json({ error: 'Producto no encontrado' })
+
+    res.status(200).json(data)
+  } catch (err) {
+    console.error('Error en getProductoById:', err)
+    res.status(500).json({ error: 'Error interno' })
   }
-
-  res.status(200).json(data)
 }
 
 // Crear un nuevo producto

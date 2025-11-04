@@ -46,7 +46,7 @@ export const getPedidos = async (req, res) => {
 
     let query = supabase
       .from('pedidos')
-      // Note: some DB schemas may not include an `updated_at` column. Avoid selecting it to prevent errors.
+      // Note: some DB schemas may not include an `bug` column. Avoid selecting it to prevent errors.
       .select('id_pedido, id_cliente, id_mesa, estado, total, fecha_pedido, items', { count: 'exact' })
 
     if (estado) query = query.eq('estado', estado)
@@ -65,6 +65,42 @@ export const getPedidos = async (req, res) => {
 
     const total = count || 0
     const totalPages = Math.ceil(total / l) || 0
+    // Enrich items with product names to help frontend render product info in-place.
+    try {
+      // Collect unique product ids from the page of pedidos
+      const allProductIds = new Set()
+      for (const ped of data || []) {
+        if (Array.isArray(ped.items)) {
+          for (const it of ped.items) {
+            if (it && it.id_producto != null) allProductIds.add(it.id_producto)
+          }
+        }
+      }
+
+      if (allProductIds.size > 0) {
+        const ids = Array.from(allProductIds)
+        const { data: prods, error: prodErr } = await supabase
+          .from('productos')
+          .select('id_producto, nombre')
+          .in('id_producto', ids)
+
+        if (!prodErr && prods) {
+          const nameMap = new Map()
+          for (const p of prods) nameMap.set(p.id_producto, p.nombre || null)
+
+          // Attach nombre to each item (non-destructive)
+          for (const ped of data || []) {
+            if (Array.isArray(ped.items)) {
+              ped.items = ped.items.map(it => ({ ...it, nombre: nameMap.get(it.id_producto) || null }))
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // best-effort enrichment: if it fails, continue returning core data
+      console.error('Error enriqueciendo productos en getPedidos:', e)
+    }
+
     res.status(200).json({ page: p, limit: l, total, totalPages, pedidos: data })
   } catch (err) {
     console.error('Error en getPedidos:', err)
@@ -116,6 +152,27 @@ export const updatePedidoEstado = async (req, res) => {
     if (pedidoErr) return res.status(500).json({ error: 'Error interno al leer pedido' })
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' })
 
+    // Enrich items with product names (best-effort)
+    try {
+      if (Array.isArray(pedido.items) && pedido.items.length > 0) {
+        const ids = [...new Set(pedido.items.map(i => i.id_producto).filter(x => x != null))]
+        if (ids.length > 0) {
+          const { data: prods, error: prodErr } = await supabase
+            .from('productos')
+            .select('id_producto, nombre')
+            .in('id_producto', ids)
+
+          if (!prodErr && prods) {
+            const nameMap = new Map()
+            for (const p of prods) nameMap.set(p.id_producto, p.nombre || null)
+            pedido.items = pedido.items.map(it => ({ ...it, nombre: nameMap.get(it.id_producto) || null }))
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error enriqueciendo pedido.items con nombres:', e)
+    }
+
     const estadoActual = pedido.estado
   console.debug('[pedidos] estadoActual:', estadoActual, 'nuevoEstado:', nuevoEstado)
     if (estadoActual === nuevoEstado) return res.status(200).json({ message: 'Estado sin cambios', pedido })
@@ -130,7 +187,15 @@ export const updatePedidoEstado = async (req, res) => {
       .from('pedidos')
       .update({ estado: nuevoEstado })
       .eq('id_pedido', id)
-      .select('*')
+      .select(`
+        id_pedido,
+        id_cliente,
+        id_mesa,
+        estado,
+        total,
+        fecha_pedido,
+        items
+      `)
 
     if (updateErr) {
       console.error('Supabase update error:', updateErr)
@@ -173,7 +238,15 @@ export const updatePedidoMesa = async (req, res) => {
       .from('pedidos')
       .update({ id_mesa })
       .eq('id_pedido', id)
-      .select('*')
+      .select(`
+        id_pedido,
+        id_cliente,
+        id_mesa,
+        estado,
+        total,
+        fecha_pedido,
+        items
+      `)
 
     if (error) return res.status(400).json({ error: error.message })
 
@@ -213,7 +286,28 @@ export const getPedidoById = async (req, res) => {
 
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' })
 
-  // Try to fetch recent events from common audit/history tables if they exist
+  // Enrich items with product names (best-effort)
+    try {
+      if (Array.isArray(pedido.items) && pedido.items.length > 0) {
+        const ids = [...new Set(pedido.items.map(i => i.id_producto).filter(x => x != null))]
+        if (ids.length > 0) {
+          const { data: prods, error: prodErr } = await supabase
+            .from('productos')
+            .select('id_producto, nombre')
+            .in('id_producto', ids)
+
+          if (!prodErr && prods) {
+            const nameMap = new Map()
+            for (const p of prods) nameMap.set(p.id_producto, p.nombre || null)
+            pedido.items = pedido.items.map(it => ({ ...it, nombre: nameMap.get(it.id_producto) || null }))
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error enriqueciendo pedido.items con nombres:', e)
+    }
+
+    // Try to fetch recent events from common audit/history tables if they exist
     const historyCandidates = ['pedido_eventos', 'pedidos_historial', 'pedido_historial', 'auditoria']
     let events = []
 
@@ -250,12 +344,13 @@ export const getPedidoById = async (req, res) => {
 
     // Fallback: if no events found, create a minimal history from pedido timestamps
     if (events.length === 0) {
+      const fallbackAt = pedido.fecha_pedido || pedido.created_at || null
       events = [{
         id: null,
         description: 'Pedido creado',
         from: null,
         to: pedido.estado || null,
-        at: pedido.fecha_pedido || pedido.updated_at || null
+        at: fallbackAt
       }]
     }
 
@@ -344,11 +439,11 @@ export const createPedido = async (req, res) => {
       it.cantidad = cantidadNum
     }
 
-    // Fetch product prices in bulk to ensure server-side authoritative pricing
+    // Fetch product prices and names in bulk to ensure server-side authoritative pricing
     const productIds = [...new Set(items.map(i => i.id_producto))]
     const { data: products, error: prodErr } = await supabase
       .from('productos')
-      .select('id_producto, precio, disponible')
+      .select('id_producto, precio, disponible, nombre')
       .in('id_producto', productIds)
 
     if (prodErr) {
@@ -358,8 +453,10 @@ export const createPedido = async (req, res) => {
 
     // Build a map of id_producto -> precio
     const priceMap = new Map()
+    const nameMap = new Map()
     for (const p of products || []) {
       priceMap.set(p.id_producto, Number(p.precio))
+      nameMap.set(p.id_producto, p.nombre || null)
     }
 
     // Ensure all referenced products exist and are available
@@ -371,6 +468,8 @@ export const createPedido = async (req, res) => {
       // set authoritative price and subtotal
       it.precio = precioNum
       it.subtotal = Number((precioNum * it.cantidad).toFixed(2))
+      // attach product name at creation time (best-effort)
+      it.nombre = nameMap.get(it.id_producto) || null
     }
 
     const expectedTotal = calcularTotal(items)
@@ -464,7 +563,7 @@ export const updatePedido = async (req, res) => {
       const productIdsUpd = [...new Set(items.map(i => i.id_producto))]
       const { data: productsUpd, error: prodErrUpd } = await supabase
         .from('productos')
-        .select('id_producto, precio, disponible')
+        .select('id_producto, precio, disponible, nombre')
         .in('id_producto', productIdsUpd)
 
       if (prodErrUpd) {
@@ -473,15 +572,21 @@ export const updatePedido = async (req, res) => {
       }
 
       const priceMapUpd = new Map()
-      for (const p of productsUpd || []) priceMapUpd.set(p.id_producto, Number(p.precio))
+      const nameMapUpd = new Map()
+      for (const p of productsUpd || []) {
+        priceMapUpd.set(p.id_producto, Number(p.precio))
+        nameMapUpd.set(p.id_producto, p.nombre || null)
+      }
 
       for (const it of items) {
         if (!priceMapUpd.has(it.id_producto)) return res.status(400).json({ error: `Producto no encontrado: ${it.id_producto}` })
         const precioNum = priceMapUpd.get(it.id_producto)
         if (precioNum === undefined || precioNum === null || Number.isNaN(precioNum)) return res.status(500).json({ error: `Precio inválido para producto ${it.id_producto}` })
 
-        it.precio = precioNum
-        it.subtotal = Number((precioNum * it.cantidad).toFixed(2))
+    it.precio = precioNum
+    it.subtotal = Number((precioNum * it.cantidad).toFixed(2))
+    // attach product name when updating items
+    it.nombre = nameMapUpd.get(it.id_producto) || null
       }
 
       const expectedTotal = calcularTotal(items)

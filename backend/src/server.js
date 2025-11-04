@@ -12,6 +12,7 @@ import usuariosRoutes from './routes/usuarios.routes.js'
 import authRoutes from './routes/auth.routes.js'
 import categoriasRoutes from './routes/categorias.routes.js'
 import adminRoutes from './routes/admin.routes.js'
+import debugRoutes from './routes/debug.routes.js'
 
 
 
@@ -52,6 +53,8 @@ app.use('/api/categorias', categoriasRoutes)
 app.use('/api/usuarios', usuariosRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/admin', adminRoutes)
+// Debug routes (local only) - no auth. Remove before deploying.
+app.use('/api/debug', debugRoutes)
 
 
 // Export app for testing; only listen when not in test environment

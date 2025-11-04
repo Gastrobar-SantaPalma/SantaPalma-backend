@@ -2,6 +2,39 @@ import supabase from '../config/supabaseClient.js'
 import { calcularTotal } from '../utils/calculateTotal.js'
 import { logPedidoEvent } from '../services/pedidoEvents.service.js'
 
+// Normalize estado strings coming from the client to canonical tokens used in DB
+const normalizeEstado = (input) => {
+  if (input === undefined || input === null) return input
+
+  // Normalize to NFD and strip combining diacritical marks, collapse spaces and trim
+  const s = String(input)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // common synonyms mapping
+  const map = {
+    'en preparacion': 'preparando',
+    'en preparacion ': 'preparando',
+    'en preparacion': 'preparando',
+    'preparacion': 'preparando',
+    'preparación': 'preparando',
+    'en preparaci n': 'preparando',
+    'pendiente': 'pendiente',
+    'preparando': 'preparando',
+    'listo': 'listo',
+    'entregado': 'entregado',
+    'cancelado': 'cancelado'
+  }
+
+  if (map[s]) return map[s]
+
+  // fallback: remove spaces
+  return s.replace(/\s+/g, '')
+}
+
 // Obtener todos los pedidos
 export const getPedidos = async (req, res) => {
   try {
@@ -13,7 +46,8 @@ export const getPedidos = async (req, res) => {
 
     let query = supabase
       .from('pedidos')
-      .select('id_pedido, id_cliente, id_mesa, estado, total, fecha_pedido, updated_at, items', { count: 'exact' })
+      // Note: some DB schemas may not include an `updated_at` column. Avoid selecting it to prevent errors.
+      .select('id_pedido, id_cliente, id_mesa, estado, total, fecha_pedido, items', { count: 'exact' })
 
     if (estado) query = query.eq('estado', estado)
     if (id_mesa) query = query.eq('id_mesa', id_mesa)
@@ -40,53 +74,80 @@ export const getPedidos = async (req, res) => {
 
 // Patch estado (staff/admin)
 export const updatePedidoEstado = async (req, res) => {
+  // Start fresh: only accept nuevo estado via JSON body. Route is protected by
+  // `requireAnyRole('staff','admin')` at the router level so callers must be staff/admin.
   const { id } = req.params
-  const { estado } = req.body
 
-  if (!estado) return res.status(400).json({ error: 'estado es requerido' })
+  // Quick debug: log headers and body to verify payload parsing
+  try { console.debug('[pedidos] headers:', req.headers) } catch (e) {}
+  try { console.debug('[pedidos] body:', req.body) } catch (e) {}
 
-  // Allowed transitions
+  // 1) Extract and normalize new estado from body
+  const rawEstado = req.body && req.body.estado
+  const nuevoEstado = normalizeEstado(rawEstado)
+  // Extra debug to diagnose empty/invalid normalization cases
+  try {
+    console.debug('[pedidos] rawEstado type/val:', typeof rawEstado, JSON.stringify(rawEstado))
+    console.debug('[pedidos] nuevoEstado type/val:', typeof nuevoEstado, JSON.stringify(nuevoEstado))
+  } catch (e) {}
+  if (!nuevoEstado) return res.status(400).json({ error: 'estado es requerido en el body' })
+
+  // 2) Allowed DB enum values (mirror of DB): pendiente, preparando, listo, entregado, cancelado
+  const allowedStates = ['pendiente', 'preparando', 'listo', 'entregado', 'cancelado']
+  if (!allowedStates.includes(nuevoEstado)) return res.status(400).json({ error: `estado no válido: ${nuevoEstado}` })
+
+  // 3) Optional: enforce sensible transitions
   const transitions = {
-    'pendiente': ['preparacion'],
-    'preparacion': ['listo'],
-    'listo': ['entregado']
+    pendiente: ['preparando', 'cancelado'],
+    preparando: ['listo', 'cancelado'],
+    listo: ['entregado'],
+    entregado: [],
+    cancelado: []
   }
 
   try {
-    const { data: existing, error: existingErr } = await supabase
+    // Fetch pedido by id_pedido only
+    const { data: pedido, error: pedidoErr } = await supabase
       .from('pedidos')
       .select('id_pedido, estado')
       .eq('id_pedido', id)
       .maybeSingle()
 
-    if (existingErr) return res.status(500).json({ error: 'Error interno' })
-    if (!existing) return res.status(404).json({ error: 'Pedido no encontrado' })
+    if (pedidoErr) return res.status(500).json({ error: 'Error interno al leer pedido' })
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' })
 
-    const prev = existing.estado
-    // If same state, return no-op
-    if (prev === estado) return res.status(200).json({ message: 'Estado sin cambios', pedido: existing })
+    const estadoActual = pedido.estado
+  console.debug('[pedidos] estadoActual:', estadoActual, 'nuevoEstado:', nuevoEstado)
+    if (estadoActual === nuevoEstado) return res.status(200).json({ message: 'Estado sin cambios', pedido })
 
-    // Validate transition
-    const allowed = transitions[prev] || []
-    if (!allowed.includes(estado) && prev !== null) {
-      return res.status(400).json({ error: `Transición inválida de ${prev} a ${estado}` })
+    const allowed = transitions[estadoActual] || []
+    if (!allowed.includes(nuevoEstado)) {
+      return res.status(400).json({ error: `Transición inválida de ${estadoActual} a ${nuevoEstado}` })
     }
 
-    const { data, error } = await supabase
+    // Perform update
+    const { data: updated, error: updateErr } = await supabase
       .from('pedidos')
-      .update({ estado })
+      .update({ estado: nuevoEstado })
       .eq('id_pedido', id)
       .select('*')
 
-    if (error) return res.status(400).json({ error: error.message })
+    if (updateErr) {
+      console.error('Supabase update error:', updateErr)
+      return res.status(400).json({ error: updateErr.message })
+    }
 
-    // Log event
-    try { await logPedidoEvent({ id_pedido: id, from: prev, to: estado, description: `Cambio de estado ${prev} → ${estado}` }) } catch (e) {}
+    // Log event (best-effort)
+    try {
+      await logPedidoEvent({ id_pedido: id, from: estadoActual, to: nuevoEstado, description: `Cambio de estado ${estadoActual} → ${nuevoEstado}` })
+    } catch (e) {
+      // ignore logging errors
+    }
 
-    res.status(200).json(data[0])
+    return res.status(200).json(updated && updated[0] ? updated[0] : null)
   } catch (err) {
     console.error('Error en updatePedidoEstado:', err)
-    res.status(500).json({ error: 'Error interno' })
+    return res.status(500).json({ error: 'Error interno' })
   }
 }
 
@@ -140,7 +201,6 @@ export const getPedidoById = async (req, res) => {
         estado,
         total,
         fecha_pedido,
-        updated_at,
         items
       `)
       .eq('id_pedido', id)
@@ -153,7 +213,7 @@ export const getPedidoById = async (req, res) => {
 
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' })
 
-    // Try to fetch recent events from common audit/history tables if they exist
+  // Try to fetch recent events from common audit/history tables if they exist
     const historyCandidates = ['pedido_eventos', 'pedidos_historial', 'pedido_historial', 'auditoria']
     let events = []
 
@@ -162,6 +222,7 @@ export const getPedidoById = async (req, res) => {
         const { data: evs, error: evErr } = await supabase
           .from(table)
           .select('id, id_pedido, descripcion, estado_anterior, estado_nuevo, created_at')
+          // event tables refer to id_pedido; use the pedidoColumn if needed
           .eq('id_pedido', id)
           .order('created_at', { ascending: false })
           .limit(5)
@@ -208,7 +269,7 @@ export const getPedidoById = async (req, res) => {
 // Crear un nuevo pedido
 export const createPedido = async (req, res) => {
   try {
-    const { id_cliente, id_mesa, items, total } = req.body
+  let { id_cliente, id_mesa, items, total } = req.body
 
     // Basic validations
     if (!id_cliente && !id_mesa) return res.status(400).json({ error: 'id_cliente o id_mesa es requerido' })
@@ -271,21 +332,45 @@ export const createPedido = async (req, res) => {
       if (mesa && mesa.id_mesa) id_mesa = mesa.id_mesa
     }
 
-    // Validate items shape and compute subtotal per item
+    // Validate items shape. Prices are derived from productos table server-side.
     for (const it of items) {
       if (!it.id_producto) return res.status(400).json({ error: 'cada item debe tener id_producto' })
       if (it.cantidad === undefined || it.cantidad === null) return res.status(400).json({ error: 'cada item debe tener cantidad' })
-      if (it.precio === undefined || it.precio === null) return res.status(400).json({ error: 'cada item debe tener precio' })
 
       const cantidadNum = Number(it.cantidad)
-      const precioNum = Number(it.precio)
       if (Number.isNaN(cantidadNum) || cantidadNum <= 0) return res.status(400).json({ error: 'cantidad inválida en un item' })
-      if (Number.isNaN(precioNum) || precioNum < 0) return res.status(400).json({ error: 'precio inválido en un item' })
 
-      // normalize fields
+      // normalize cantidad only for now; precio/subtotal will be set below after fetching product prices
       it.cantidad = cantidadNum
+    }
+
+    // Fetch product prices in bulk to ensure server-side authoritative pricing
+    const productIds = [...new Set(items.map(i => i.id_producto))]
+    const { data: products, error: prodErr } = await supabase
+      .from('productos')
+      .select('id_producto, precio, disponible')
+      .in('id_producto', productIds)
+
+    if (prodErr) {
+      console.error('Error obteniendo productos para calcular precios:', prodErr.message)
+      return res.status(500).json({ error: 'Error interno obteniendo precios de productos' })
+    }
+
+    // Build a map of id_producto -> precio
+    const priceMap = new Map()
+    for (const p of products || []) {
+      priceMap.set(p.id_producto, Number(p.precio))
+    }
+
+    // Ensure all referenced products exist and are available
+    for (const it of items) {
+      if (!priceMap.has(it.id_producto)) return res.status(400).json({ error: `Producto no encontrado: ${it.id_producto}` })
+      const precioNum = priceMap.get(it.id_producto)
+      if (precioNum === undefined || precioNum === null || Number.isNaN(precioNum)) return res.status(500).json({ error: `Precio inválido para producto ${it.id_producto}` })
+
+      // set authoritative price and subtotal
       it.precio = precioNum
-      it.subtotal = Number((precioNum * cantidadNum).toFixed(2))
+      it.subtotal = Number((precioNum * it.cantidad).toFixed(2))
     }
 
     const expectedTotal = calcularTotal(items)
@@ -338,9 +423,13 @@ export const createPedido = async (req, res) => {
 export const updatePedido = async (req, res) => {
   const { id } = req.params
   try {
-    let { id_cliente, id_mesa, estado, total, items } = req.body
+  // guard against missing req.body (avoid destructure TypeError)
+  let { id_cliente, id_mesa, estado, total, items } = req.body || {}
 
-    // Fetch current pedido to detect estado changes
+  // normalize estado if provided (accept values like "en preparación")
+  if (estado !== undefined && estado !== null) estado = normalizeEstado(estado)
+
+    // Fetch current pedido to detect estado changes (look up by id_pedido only)
     const { data: existingPedido, error: existingErr } = await supabase
       .from('pedidos')
       .select('id_pedido, estado')
@@ -352,24 +441,47 @@ export const updatePedido = async (req, res) => {
       return res.status(500).json({ error: 'Error interno' })
     }
 
+    // If the pedido doesn't exist, return 404 early (avoid doing work)
+    if (!existingPedido) return res.status(404).json({ error: 'Pedido no encontrado' })
+
     const previousEstado = existingPedido ? existingPedido.estado : null
 
-    // If items provided, validate them similarly to create
+    // If items provided, validate them and derive prices server-side (same approach as create)
     if (items !== undefined) {
       if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'items debe ser un arreglo con al menos un elemento' })
+
+      // normalize cantidad and validate presence
       for (const it of items) {
         if (!it.id_producto) return res.status(400).json({ error: 'cada item debe tener id_producto' })
         if (it.cantidad === undefined || it.cantidad === null) return res.status(400).json({ error: 'cada item debe tener cantidad' })
-        if (it.precio === undefined || it.precio === null) return res.status(400).json({ error: 'cada item debe tener precio' })
 
         const cantidadNum = Number(it.cantidad)
-        const precioNum = Number(it.precio)
         if (Number.isNaN(cantidadNum) || cantidadNum <= 0) return res.status(400).json({ error: 'cantidad inválida en un item' })
-        if (Number.isNaN(precioNum) || precioNum < 0) return res.status(400).json({ error: 'precio inválido en un item' })
-
         it.cantidad = cantidadNum
+      }
+
+      // Fetch product prices in bulk
+      const productIdsUpd = [...new Set(items.map(i => i.id_producto))]
+      const { data: productsUpd, error: prodErrUpd } = await supabase
+        .from('productos')
+        .select('id_producto, precio, disponible')
+        .in('id_producto', productIdsUpd)
+
+      if (prodErrUpd) {
+        console.error('Error obteniendo productos para calcular precios (update):', prodErrUpd.message)
+        return res.status(500).json({ error: 'Error interno obteniendo precios de productos' })
+      }
+
+      const priceMapUpd = new Map()
+      for (const p of productsUpd || []) priceMapUpd.set(p.id_producto, Number(p.precio))
+
+      for (const it of items) {
+        if (!priceMapUpd.has(it.id_producto)) return res.status(400).json({ error: `Producto no encontrado: ${it.id_producto}` })
+        const precioNum = priceMapUpd.get(it.id_producto)
+        if (precioNum === undefined || precioNum === null || Number.isNaN(precioNum)) return res.status(500).json({ error: `Precio inválido para producto ${it.id_producto}` })
+
         it.precio = precioNum
-        it.subtotal = Number((precioNum * cantidadNum).toFixed(2))
+        it.subtotal = Number((precioNum * it.cantidad).toFixed(2))
       }
 
       const expectedTotal = calcularTotal(items)
@@ -426,10 +538,19 @@ export const updatePedido = async (req, res) => {
       if (mesa && mesa.id_mesa) id_mesa = mesa.id_mesa
     }
 
-    const updates = { id_cliente, id_mesa, estado, total }
-    if (items !== undefined) updates.items = items
+    // Build updates only with defined fields to avoid accidental null/undefined writes
+  const updates = {}
+  if (id_cliente !== undefined) updates.id_cliente = id_cliente
+  if (id_mesa !== undefined) updates.id_mesa = id_mesa
+  if (estado !== undefined) updates.estado = estado
+  if (total !== undefined) updates.total = total
+  if (items !== undefined) updates.items = items
 
-    const { data, error } = await supabase
+    // Update by id_pedido only
+    const pkColUpd = 'id_pedido'
+    console.debug('[pedidos] updatePedido attempt', { id, pkColUpd, updates })
+
+    let { data, error } = await supabase
       .from('pedidos')
       .update(updates)
       .eq('id_pedido', id)
@@ -442,6 +563,8 @@ export const updatePedido = async (req, res) => {
         fecha_pedido,
         items
       `)
+
+    console.debug('[pedidos] updatePedido result', { id, pkColUpd, data, error })
 
     if (error) {
       console.error('Error al actualizar pedido:', error.message)
@@ -487,3 +610,4 @@ export const deletePedido = async (req, res) => {
 
   res.status(204).send()
 }
+

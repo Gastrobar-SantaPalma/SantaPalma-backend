@@ -119,3 +119,12 @@ Si quieres, puedo:
 - C) Implementar la eliminación de imagen en `deleteProducto` ahora.
 
 Indica qué acción prefieres y la inicio.
+
+---
+
+ACTUALIZACIÓN DEL 2025-11-02
+- Se creó un "Memory Bank" con archivos en `memory-bank/` que contienen: `projectbrief.md`, `productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md` y `progress.md`.
+- Se añadió `PROGRESS.md` en la raíz con el estado resumido de las historias de usuario.
+- Cambios principales relacionados: subida de imágenes de productos (multer + Supabase Storage), precios de pedidos calculados server-side, ajustes de CORS para PATCH y correcciones en `getProductoById`.
+
+Consulta `memory-bank/progress.md` para una vista sincronizada del estado y los próximos pasos.

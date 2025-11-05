@@ -15,7 +15,7 @@ export async function generateQr (req, res) {
   // Validate mesa exists
   const { data: mesa, error } = await supabase
     .from('mesas')
-    .select('id_mesa, codigo_qr')
+    .select('id_mesa')
     .eq('id_mesa', Number(id))
     .single()
 
@@ -48,15 +48,8 @@ export async function generateQr (req, res) {
         } else {
           const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path)
           const publicUrl = publicData?.publicUrl
-          if (publicUrl) {
-            // try to persist qr_url in mesas (best effort)
-            const { error: updErr } = await supabase
-              .from('mesas')
-              .update({ qr_url: publicUrl })
-              .eq('id_mesa', Number(id))
-
-            if (updErr) console.error('Error guardando qr_url en mesa:', updErr.message)
-          }
+          // Do not persist QR URL in DB; QRs are not stored in mesas per project policy.
+          // We keep the publicUrl available in uploadData if callers need it.
         }
       }
 
@@ -79,14 +72,8 @@ export async function generateQr (req, res) {
       } else {
         const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path)
         const publicUrl = publicData?.publicUrl
-        if (publicUrl) {
-          const { error: updErr } = await supabase
-            .from('mesas')
-            .update({ qr_url: publicUrl })
-            .eq('id_mesa', Number(id))
-
-          if (updErr) console.error('Error guardando qr_url en mesa:', updErr.message)
-        }
+        // Do not persist QR URL in DB; QRs are not stored in mesas per project policy.
+        // We keep the publicUrl available in uploadData if callers need it.
       }
     }
 

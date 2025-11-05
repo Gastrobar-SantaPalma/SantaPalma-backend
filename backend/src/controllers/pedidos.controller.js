@@ -386,45 +386,28 @@ export const createPedido = async (req, res) => {
     }
 
     if (id_mesa) {
-      // Try to find mesa by id_mesa. Accept numeric strings too.
-      let mesa = null
+      // Try to find mesa by id_mesa. Accept numeric strings only.
+      const maybeId = Number(id_mesa)
+      if (Number.isNaN(maybeId) || maybeId <= 0) {
+        return res.status(400).json({ error: 'id_mesa inválido; debe ser un número entero' })
+      }
+      // Verify the mesa exists
       try {
-        const maybeId = Number(id_mesa)
-        if (!Number.isNaN(maybeId)) {
-          const { data, error: mesaErr } = await supabase
-            .from('mesas')
-            .select('id_mesa')
-            .eq('id_mesa', maybeId)
-            .maybeSingle()
-          if (mesaErr) {
-            console.error('Error comprobando id_mesa (num):', mesaErr.message)
-            return res.status(500).json({ error: 'Error interno verificando id_mesa' })
-          }
-          mesa = data
+        const { data: mesa, error: mesaErr } = await supabase
+          .from('mesas')
+          .select('id_mesa')
+          .eq('id_mesa', maybeId)
+          .maybeSingle()
+        if (mesaErr) {
+          console.error('Error comprobando id_mesa (num):', mesaErr.message)
+          return res.status(500).json({ error: 'Error interno verificando id_mesa' })
         }
-
-        // If not found by numeric id, try matching against codigo_qr (useful when frontend sends QR code)
-        if (!mesa) {
-          const { data: byQr, error: qrErr } = await supabase
-            .from('mesas')
-            .select('id_mesa, codigo_qr')
-            .eq('codigo_qr', String(id_mesa))
-            .maybeSingle()
-          if (qrErr) {
-            console.error('Error comprobando codigo_qr de mesa:', qrErr.message)
-            return res.status(500).json({ error: 'Error interno verificando id_mesa' })
-          }
-          mesa = byQr
-        }
+        if (!mesa) return res.status(400).json({ error: 'Mesa no encontrada (id_mesa inválido)' })
+        id_mesa = mesa.id_mesa
       } catch (errMesa) {
         console.error('Error verificando mesa:', errMesa)
         return res.status(500).json({ error: 'Error interno verificando id_mesa' })
       }
-
-      if (!mesa) return res.status(400).json({ error: 'Mesa no encontrada (id_mesa o codigo_qr inválido)' })
-
-      // If mesa was found by codigo_qr, normalize id_mesa to the real id for insertion
-      if (mesa && mesa.id_mesa) id_mesa = mesa.id_mesa
     }
 
     // Validate items shape. Prices are derived from productos table server-side.
@@ -613,36 +596,24 @@ export const updatePedido = async (req, res) => {
       if (!cliente) return res.status(400).json({ error: 'id_cliente no existe' })
     }
     if (id_mesa) {
-      // Same normalization as in create: accept numeric ids or codigo_qr and resolve to actual id_mesa
-      let mesa = null
+      // Require numeric id_mesa on update; do not fallback to QR metadata lookup
+      const maybeId = Number(id_mesa)
+      if (Number.isNaN(maybeId) || maybeId <= 0) {
+        return res.status(400).json({ error: 'id_mesa inválido; debe ser un número entero' })
+      }
       try {
-        const maybeId = Number(id_mesa)
-        if (!Number.isNaN(maybeId)) {
-          const { data, error: mesaErr } = await supabase
-            .from('mesas')
-            .select('id_mesa')
-            .eq('id_mesa', maybeId)
-            .maybeSingle()
-          if (mesaErr) return res.status(500).json({ error: 'Error interno verificando id_mesa' })
-          mesa = data
-        }
-
-        if (!mesa) {
-          const { data: byQr, error: qrErr } = await supabase
-            .from('mesas')
-            .select('id_mesa, codigo_qr')
-            .eq('codigo_qr', String(id_mesa))
-            .maybeSingle()
-          if (qrErr) return res.status(500).json({ error: 'Error interno verificando id_mesa' })
-          mesa = byQr
-        }
+        const { data: mesa, error: mesaErr } = await supabase
+          .from('mesas')
+          .select('id_mesa')
+          .eq('id_mesa', maybeId)
+          .maybeSingle()
+        if (mesaErr) return res.status(500).json({ error: 'Error interno verificando id_mesa' })
+        if (!mesa) return res.status(400).json({ error: 'Mesa no encontrada (id_mesa inválido)' })
+        id_mesa = mesa.id_mesa
       } catch (errMesa) {
         console.error('Error comprobando mesa:', errMesa)
         return res.status(500).json({ error: 'Error interno verificando id_mesa' })
       }
-
-      if (!mesa) return res.status(400).json({ error: 'Mesa no encontrada (id_mesa o codigo_qr inválido)' })
-      if (mesa && mesa.id_mesa) id_mesa = mesa.id_mesa
     }
 
     // Build updates only with defined fields to avoid accidental null/undefined writes

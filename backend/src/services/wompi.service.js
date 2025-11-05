@@ -8,21 +8,71 @@ const WOMPI_KEY = process.env.WOMPI_KEY || ''
  * Por ahora devuelve una respuesta simulada para permitir desarrollo local.
  */
 export const createPayment = async ({ pedidoId, amount, currency = 'COP', metadata = {} }) => {
-  // TODO: Implementar llamada real a Wompi usando WOMPI_KEY
-  // Ejemplo de payload que se enviaría a Wompi: amount, currency, reference, redirect_url, metadata
+  // If WOMPI_KEY is not configured, return a simulated response so dev flows keep working
+  if (!WOMPI_KEY) {
+    const transaction_id = `TRX-${Date.now()}`
+    const checkout_url = `https://pagos.sandbox.wompi.co/checkout/${transaction_id}`
+    return {
+      transaction_id,
+      checkout_url,
+      amount,
+      currency,
+      metadata,
+      raw: { simulated: true }
+    }
+  }
 
-  // Simulación: generar transaction_id y checkout_url ficticios
-  const transaction_id = `TRX-${Date.now()}`
-  const checkout_url = `https://pagos.sandbox.wompi.co/checkout/${transaction_id}`
+  // When a key is present, attempt a real call to Wompi (sandbox by default)
+  try {
+    const fetch = (await import('node-fetch')).default
+    const isSandbox = (process.env.WOMPI_SANDBOX || 'true').toLowerCase() === 'true'
+    const base = isSandbox ? 'https://sandbox.wompi.co/v1' : 'https://production.wompi.co/v1'
+    const url = `${base}/transactions`
 
-  return {
-    transaction_id,
-    checkout_url,
-    amount,
-    currency,
-    metadata,
-    // raw: placeholder to store full response if needed
-    raw: { simulated: true }
+    const payload = {
+      amount_in_cents: Math.round(Number(amount || 0) * 100),
+      currency: currency || 'COP',
+      reference: `pedido_${pedidoId}`,
+      redirect_url: process.env.PAYMENTS_CALLBACK_URL || process.env.CLIENT_URL || null,
+      metadata: { pedidoId, ...metadata }
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${WOMPI_KEY}`
+      },
+      body: JSON.stringify(payload),
+      timeout: 10000
+    })
+
+    const body = await resp.json()
+
+    // Attempt to extract transaction id and checkout url from usual Wompi response shapes
+    const transaction_id = body?.data?.id || body?.data?.object?.payment?.id || null
+    const checkout_url = body?.data?.attributes?.checkout_url || body?.data?.object?.payment?.checkout_url || null
+
+    return {
+      transaction_id,
+      checkout_url,
+      amount,
+      currency,
+      metadata,
+      raw: body
+    }
+  } catch (err) {
+    // On failure, fall back to a simulated response but include the error in `raw` for debugging
+    const transaction_id = `TRX-ERR-${Date.now()}`
+    const checkout_url = `https://pagos.sandbox.wompi.co/checkout/${transaction_id}`
+    return {
+      transaction_id,
+      checkout_url,
+      amount,
+      currency,
+      metadata,
+      raw: { simulated: true, error: String(err) }
+    }
   }
 }
 

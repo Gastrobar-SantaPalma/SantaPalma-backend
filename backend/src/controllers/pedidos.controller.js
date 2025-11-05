@@ -480,13 +480,15 @@ export const createPedido = async (req, res) => {
       }
     }
 
+    // Do NOT set fecha_pedido here; prefer the DB default (now()) so the
+    // timestamp is authoritative and uses the database timezone. Setting the
+    // timestamp from the server can cause timezone/display mismatches.
     const pedidoObj = {
       id_cliente: id_cliente || null,
       id_mesa: id_mesa || null,
       items,
       total: expectedTotal,
-      estado: 'pendiente',
-      fecha_pedido: new Date().toISOString()
+      estado: 'pendiente'
     }
 
     // Insert and expect DB to support items json/jsonb column. If not, return an instructive error.

@@ -124,13 +124,59 @@ export const wompiWebhook = async (req, res) => {
     const transactionId = payload?.data?.object?.payment?.id || payload?.data?.object?.payment?.transaction_id || payload?.data?.object?.payment?.transaction || null
     try {
       if (transactionId) {
-        const { data: pagoUpd, error: pagoUpdErr } = await supabase
+        // Check existing pago by transaction_id
+        const { data: existingPago, error: existErr } = await supabase
           .from('pagos')
-          .update({ status: status ? String(status).toLowerCase() : null, raw: payload })
+          .select('id_pago, status')
           .eq('transaction_id', transactionId)
-          .select()
+          .maybeSingle()
 
-        if (pagoUpdErr) console.warn('No se pudo actualizar registro de pago por transaction_id:', pagoUpdErr.message)
+        if (existErr) {
+          console.warn('Error buscando pago por transaction_id:', existErr.message)
+        }
+
+        // If we have an existing pago with a final status, skip re-processing (idempotency)
+        const finalStatuses = new Set(['approved', 'finalized', 'paid', 'pagado', 'completed'])
+        if (existingPago && existingPago.status && finalStatuses.has(String(existingPago.status).toLowerCase())) {
+          console.info('Webhook duplicado recibido para transaction_id, ya procesado:', transactionId)
+          return res.status(200).json({ ok: true, reason: 'already_processed' })
+        }
+
+        // If exists, update; otherwise insert a new pagos row
+        if (existingPago && existingPago.id_pago) {
+          const { data: pagoUpd, error: pagoUpdErr } = await supabase
+            .from('pagos')
+            .update({ status: status ? String(status).toLowerCase() : null, raw: payload })
+            .eq('id_pago', existingPago.id_pago)
+            .select()
+
+          if (pagoUpdErr) console.warn('No se pudo actualizar registro de pago por transaction_id:', pagoUpdErr.message)
+        } else {
+          const { data: pagoIns, error: pagoInsErr } = await supabase
+            .from('pagos')
+            .insert([{
+              id_pedido: pedidoId,
+              transaction_id: transactionId,
+              status: status ? String(status).toLowerCase() : null,
+              amount: payload?.data?.object?.payment?.amount_in_cents ? Number(payload.data.object.payment.amount_in_cents) / 100 : null,
+              currency: payload?.data?.object?.payment?.currency || null,
+              raw: payload
+            }])
+            .select()
+
+          if (pagoInsErr) {
+            // If insert fails due to unique constraint (race), try to update instead
+            console.warn('No se pudo insertar registro de pago (posible race/unique):', pagoInsErr.message)
+            try {
+              await supabase
+                .from('pagos')
+                .update({ status: status ? String(status).toLowerCase() : null, raw: payload })
+                .eq('transaction_id', transactionId)
+            } catch (e) {
+              console.error('Error intentando fallback update de pago tras insert fallido:', e)
+            }
+          }
+        }
       } else {
         // Try to match by id_pedido and recent created_at if transaction id not provided
         const { data: pagoByPedido, error: pagoByPedidoErr } = await supabase

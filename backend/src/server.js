@@ -27,10 +27,13 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (e.g. mobile apps, curl) or from the configured client
     if (!origin || origin === CLIENT_URL) return callback(null, true)
+    // Log rejected origins to help debug deployed CORS issues
+    console.warn(`CORS: rejecting origin '${origin}' (allowed: ${CLIENT_URL})`)
     return callback(new Error('CORS policy: This origin is not allowed'))
   },
   credentials: true, // Allow cookies/credentials to be sent
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  // Include PATCH because some endpoints use PATCH (e.g. /api/pedidos/:id/estado)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }
 

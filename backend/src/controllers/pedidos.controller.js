@@ -47,7 +47,7 @@ export const getPedidos = async (req, res) => {
     let query = supabase
       .from('pedidos')
       // Note: some DB schemas may not include an `bug` column. Avoid selecting it to prevent errors.
-      .select('id_pedido, id_cliente, id_mesa, estado, total, fecha_pedido, items', { count: 'exact' })
+      .select('id_pedido, id_cliente, id_mesa, estado, total, pago, fecha_pedido, items', { count: 'exact' })
 
     if (estado) query = query.eq('estado', estado)
     if (id_mesa) query = query.eq('id_mesa', id_mesa)
@@ -193,6 +193,7 @@ export const updatePedidoEstado = async (req, res) => {
         id_mesa,
         estado,
         total,
+        pago,
         fecha_pedido,
         items
       `)
@@ -244,6 +245,7 @@ export const updatePedidoMesa = async (req, res) => {
         id_mesa,
         estado,
         total,
+        pago,
         fecha_pedido,
         items
       `)
@@ -273,6 +275,7 @@ export const getPedidoById = async (req, res) => {
         id_mesa,
         estado,
         total,
+        pago,
         fecha_pedido,
         items
       `)
@@ -471,7 +474,9 @@ export const createPedido = async (req, res) => {
       id_mesa: id_mesa || null,
       items,
       total: expectedTotal,
-      estado: 'pendiente'
+      estado: 'pendiente',
+      /* NUEVO: se agregó campo pago */
+      pago: "no_pagado",
     }
 
     // Insert and expect DB to support items json/jsonb column. If not, return an instructive error.
@@ -508,10 +513,16 @@ export const updatePedido = async (req, res) => {
   const { id } = req.params
   try {
   // guard against missing req.body (avoid destructure TypeError)
-  let { id_cliente, id_mesa, estado, total, items } = req.body || {}
+  let { id_cliente, id_mesa, estado, total, items, pago } = req.body || {}
 
-  // normalize estado if provided (accept values like "en preparación")
-  if (estado !== undefined && estado !== null) estado = normalizeEstado(estado)
+    // normalize estado if provided (accept values like "en preparación")
+    if (estado !== undefined && estado !== null) estado = normalizeEstado(estado)
+
+    // Validate pago if provided: only 'pagado' or 'no_pagado' allowed
+    if (pago !== undefined && pago !== null) {
+      const allowedPago = ['pagado', 'no_pagado']
+      if (!allowedPago.includes(pago)) return res.status(400).json({ error: `pago no válido: ${pago}` })
+    }
 
     // Fetch current pedido to detect estado changes (look up by id_pedido only)
     const { data: existingPedido, error: existingErr } = await supabase
@@ -622,6 +633,7 @@ export const updatePedido = async (req, res) => {
   if (id_mesa !== undefined) updates.id_mesa = id_mesa
   if (estado !== undefined) updates.estado = estado
   if (total !== undefined) updates.total = total
+    if (pago !== undefined) updates.pago = pago
   if (items !== undefined) updates.items = items
 
     // Update by id_pedido only
@@ -638,6 +650,7 @@ export const updatePedido = async (req, res) => {
         id_mesa,
         estado,
         total,
+        pago,
         fecha_pedido,
         items
       `)
@@ -687,5 +700,45 @@ export const deletePedido = async (req, res) => {
   }
 
   res.status(204).send()
+}
+
+// Actualizar estado de pago del pedido (staff/admin)
+export const updatePedidoPago = async (req, res) => {
+  const { id } = req.params
+  try {
+    const { pago } = req.body || {}
+
+    if (pago === undefined || pago === null) return res.status(400).json({ error: 'pago es requerido en el body' })
+
+    const allowedPago = ['pagado', 'no_pagado']
+    if (!allowedPago.includes(pago)) return res.status(400).json({ error: `pago no válido: ${pago}` })
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .update({ pago })
+      .eq('id_pedido', id)
+      .select(`
+        id_pedido,
+        id_cliente,
+        id_mesa,
+        estado,
+        total,
+        pago,
+        fecha_pedido,
+        items
+      `)
+
+    if (error) {
+      console.error('Error al actualizar pago del pedido:', error.message)
+      return res.status(400).json({ error: error.message })
+    }
+
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    res.status(200).json(data[0])
+  } catch (err) {
+    console.error('Error interno al actualizar pago del pedido:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
 }
 

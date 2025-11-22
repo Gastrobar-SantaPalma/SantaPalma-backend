@@ -269,7 +269,7 @@ export const getPedidosDelCliente = async (req, res) => {
 
     const { data, error } = await supabase
       .from('pedidos')
-      .select('*')
+      .select('id_pedido, id_cliente, id_mesa, estado, total, pago, fecha_pedido, items')
       .eq('id_cliente', clienteId)
       .order('fecha_pedido', { ascending: false });
 

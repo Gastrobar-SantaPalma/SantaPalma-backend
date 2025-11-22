@@ -22,17 +22,30 @@ const app = express()
 app.use(morgan('dev'))
 
 // CORS configuration
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+// Accept a comma-separated list in CLIENT_URLS or a single CLIENT_URL.
+const rawClientUrls = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
+const configuredOrigins = rawClientUrls
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. mobile apps, curl) or from the configured client
-    if (!origin || origin === CLIENT_URL) return callback(null, true)
+    // Allow requests with no origin (e.g. mobile apps, curl)
+    if (!origin) return callback(null, true)
+
+    // Allow explicitly configured origins
+    if (configuredOrigins.includes(origin)) return callback(null, true)
+
+    // In non-production allow localhost/127.0.0.1 with any port to ease local development
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+    if (process.env.NODE_ENV !== 'production' && isLocalhost) return callback(null, true)
+
     // Log rejected origins to help debug deployed CORS issues
-    console.warn(`CORS: rejecting origin '${origin}' (allowed: ${CLIENT_URL})`)
+    console.warn(`CORS: rejecting origin '${origin}' (allowed: ${configuredOrigins.length ? configuredOrigins.join(',') : 'none'})`)
     return callback(new Error('CORS policy: This origin is not allowed'))
   },
   credentials: true, // Allow cookies/credentials to be sent
-  // Include PATCH because some endpoints use PATCH (e.g. /api/pedidos/:id/estado)
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }

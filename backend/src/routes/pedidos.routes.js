@@ -15,7 +15,7 @@ import { authMiddleware, requireAnyRole } from '../middlewares/auth.middleware.j
 
 const router = express.Router()
 
-// List orders clients
+// List client orders
 router.get(
   '/cliente/mis-pedidos',
   authMiddleware,

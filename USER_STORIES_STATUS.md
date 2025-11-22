@@ -138,3 +138,4 @@ ACTUALIZACIÓN DEL 2025-11-22
   - Se corrigió el webhook de pagos para actualizar correctamente el estado `pago`.
   - Se añadieron pruebas unitarias en `backend/tests/product_ratings.test.js`.
   - **Estado de Tests:** ✅ 5/5 Tests pasaron exitosamente.
+  - **Revisión de Código:** Se aplicaron correcciones de seguridad, validación de tipos y manejo de errores sugeridas en PR.

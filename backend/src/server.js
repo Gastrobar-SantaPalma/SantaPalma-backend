@@ -39,7 +39,8 @@ const corsOptions = {
 
     // In non-production allow localhost/127.0.0.1 with any port to ease local development
     const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
-    if (process.env.NODE_ENV !== 'production' && isLocalhost) return callback(null, true)
+    const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !process.env.NODE_ENV
+    if (isDevOrTest && isLocalhost) return callback(null, true)
 
     // Log rejected origins to help debug deployed CORS issues
     console.warn(`CORS: rejecting origin '${origin}' (allowed: ${configuredOrigins.length ? configuredOrigins.join(',') : 'none'})`)

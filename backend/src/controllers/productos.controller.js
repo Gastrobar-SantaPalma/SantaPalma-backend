@@ -123,7 +123,11 @@ export const getProductoById = async (req, res) => {
       .order('fecha_creacion', { ascending: false })
       .limit(5)
 
-    if (commentsErr) console.warn('Error fetching comments:', commentsErr.message)
+    if (commentsErr) {
+      console.warn('Error fetching comments:', commentsErr.message)
+      // Return empty array on error to avoid breaking the UI, but log it.
+      // In strict mode, we might want to return 500, but for auxiliary data like comments, degradation is preferred.
+    }
     
     data.comentarios = comments || []
 
@@ -381,8 +385,13 @@ export const rateProduct = async (req, res) => {
   const { puntuacion, comentario } = req.body
   const id_usuario = req.user.id
 
-  if (!puntuacion || puntuacion < 1 || puntuacion > 5) {
-    return res.status(400).json({ error: 'Puntuación inválida (1-5)' })
+  // Validate product ID
+  const productId = parseInt(id, 10)
+  if (isNaN(productId)) return res.status(400).json({ error: 'ID de producto inválido' })
+
+  // Validate score type and range
+  if (typeof puntuacion !== 'number' || !Number.isInteger(puntuacion) || puntuacion < 1 || puntuacion > 5) {
+    return res.status(400).json({ error: 'Puntuación inválida (debe ser un entero entre 1 y 5)' })
   }
 
   try {
@@ -401,7 +410,7 @@ export const rateProduct = async (req, res) => {
     // Check if any order contains the product
     const validOrder = orders.find(order => {
       if (!Array.isArray(order.items)) return false
-      return order.items.some(item => Number(item.id_producto) === Number(id))
+      return order.items.some(item => Number(item.id_producto) === productId)
     })
 
     if (!validOrder) {
@@ -409,24 +418,30 @@ export const rateProduct = async (req, res) => {
     }
 
     // 2. Upsert Rating
+    // Note: We do NOT set fecha_creacion here to allow the DB default (NOW()) to persist on updates if desired,
+    // or if we want to update the timestamp on edit, we should use a separate 'updated_at' column.
+    // For now, we'll let the DB handle creation time and only update score/comment.
     const { data, error } = await supabase
       .from('calificaciones_producto')
       .upsert({
-        id_producto: id,
+        id_producto: productId,
         id_usuario: id_usuario,
         id_pedido: validOrder.id_pedido,
         puntuacion,
-        comentario,
-        fecha_creacion: new Date()
+        comentario
       }, { onConflict: 'id_producto, id_usuario' })
       .select()
 
     if (error) {
       console.error('Error saving rating:', error.message)
+      // Check for foreign key violation (product not found)
+      if (error.code === '23503') { // PostgreSQL foreign_key_violation
+         return res.status(404).json({ error: 'Producto no encontrado' })
+      }
       return res.status(500).json({ error: 'Error guardando calificación' })
     }
 
-    res.status(200).json(data[0])
+    res.status(200).json(data?.[0] || { success: true })
   } catch (err) {
     console.error('Error in rateProduct:', err)
     res.status(500).json({ error: 'Error interno' })
@@ -438,6 +453,9 @@ export const getProductComments = async (req, res) => {
   const { id } = req.params
   const { page = 1, limit = 5 } = req.query
   
+  const productId = parseInt(id, 10)
+  if (isNaN(productId)) return res.status(400).json({ error: 'ID de producto inválido' })
+
   const p = Math.max(parseInt(page, 10) || 1, 1)
   const l = Math.min(Math.max(parseInt(limit, 10) || 5, 1), 50)
   const start = (p - 1) * l
@@ -447,7 +465,7 @@ export const getProductComments = async (req, res) => {
     const { data, count, error } = await supabase
       .from('calificaciones_producto')
       .select('id_calificacion, puntuacion, comentario, fecha_creacion', { count: 'exact' })
-      .eq('id_producto', id)
+      .eq('id_producto', productId)
       .order('fecha_creacion', { ascending: false })
       .range(start, end)
 

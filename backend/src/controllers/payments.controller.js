@@ -197,6 +197,10 @@ export const wompiWebhook = async (req, res) => {
     }
 
     // Update pedido row accordingly (idempotent)
+    if (Object.keys(updates).length === 0) {
+      return res.status(200).json({ ok: true, reason: 'no_status_change_needed' })
+    }
+
     const { data, error } = await supabase
       .from('pedidos')
       .update(updates)

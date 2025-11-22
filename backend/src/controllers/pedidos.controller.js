@@ -262,7 +262,7 @@ export const updatePedidoMesa = async (req, res) => {
   }
 }
 
-// Controlador pedido por cliente 
+// Obtener pedidos del cliente autenticado
 export const getPedidosDelCliente = async (req, res) => {
   try {
     const clienteId = req.user.id;

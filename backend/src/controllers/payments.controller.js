@@ -110,14 +110,13 @@ export const wompiWebhook = async (req, res) => {
     // Inspect payment status
     const status = payload?.data?.object?.payment?.status || payload?.data?.object?.status || null
 
-    // Map status to pedido estados
-    let nuevoEstado = null
+    // Map status to pedido fields
+    const updates = {}
+    
     if (status === 'APPROVED' || status === 'approved' || status === 'FINALIZED' || status === 'finalized' || status === 'completed') {
-      nuevoEstado = 'pagado'
-    } else if (status === 'PENDING' || status === 'pending') {
-      nuevoEstado = 'pendiente'
+      updates.pago = 'pagado'
     } else if (status === 'DECLINED' || status === 'declined' || status === 'FAILED') {
-      nuevoEstado = 'fallido'
+      updates.pago = 'no_pagado'
     }
 
     // Update (idempotently) pagos record if we can identify transaction_id
@@ -198,14 +197,15 @@ export const wompiWebhook = async (req, res) => {
     }
 
     // Update pedido row accordingly (idempotent)
-    const updates = {}
-    if (nuevoEstado) updates.estado = nuevoEstado
+    if (Object.keys(updates).length === 0) {
+      return res.status(200).json({ ok: true, reason: 'no_status_change_needed' })
+    }
 
     const { data, error } = await supabase
       .from('pedidos')
       .update(updates)
       .eq('id_pedido', pedidoId)
-      .select('id_pedido, estado')
+      .select('id_pedido, estado, pago')
 
     if (error) {
       console.error('Error actualizando pedido desde webhook:', error.message)

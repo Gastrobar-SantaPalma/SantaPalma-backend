@@ -28,8 +28,6 @@ router.get('/', authMiddleware, requireAnyRole('staff', 'admin'), getPedidos)
 router.get('/:id', authMiddleware, getPedidoById)
 
 
-
-
 // Create and modify orders
 router.post('/', authMiddleware, createPedido)
 router.put('/:id', authMiddleware, updatePedido)

@@ -128,3 +128,13 @@ ACTUALIZACIÓN DEL 2025-11-02
 - Cambios principales relacionados: subida de imágenes de productos (multer + Supabase Storage), precios de pedidos calculados server-side, ajustes de CORS para PATCH y correcciones en `getProductoById`.
 
 Consulta `memory-bank/progress.md` para una vista sincronizada del estado y los próximos pasos.
+
+---
+
+ACTUALIZACIÓN DEL 2025-11-22
+- **HU4.1 Calificación de Productos:** Implementación Backend completada.
+  - Se creó la tabla `calificaciones_producto` y triggers para promedios.
+  - Se implementaron endpoints `rateProduct` (con validación de compra) y `getProductComments`.
+  - Se corrigió el webhook de pagos para actualizar correctamente el estado `pago`.
+  - Se añadieron pruebas unitarias en `backend/tests/product_ratings.test.js`.
+  - **Estado de Tests:** ✅ 5/5 Tests pasaron exitosamente.

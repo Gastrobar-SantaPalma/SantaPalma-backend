@@ -2,6 +2,7 @@ import express from 'express'
 import { 
     getPedidos, 
     getPedidoById,
+    getPedidosDelCliente,
     createPedido,
     updatePedido,
     deletePedido,
@@ -14,9 +15,20 @@ import { authMiddleware, requireAnyRole } from '../middlewares/auth.middleware.j
 
 const router = express.Router()
 
+// List orders clients
+router.get(
+  '/cliente/mis-pedidos',
+  authMiddleware,
+  requireAnyRole('cliente', 'staff', 'admin'),
+  getPedidosDelCliente
+)
+
 // List pedidos (staff/admin)
 router.get('/', authMiddleware, requireAnyRole('staff', 'admin'), getPedidos)
 router.get('/:id', authMiddleware, getPedidoById)
+
+
+
 
 // Create and modify orders
 router.post('/', authMiddleware, createPedido)

@@ -262,6 +262,30 @@ export const updatePedidoMesa = async (req, res) => {
   }
 }
 
+// Controlador pedido por cliente 
+export const getPedidosDelCliente = async (req, res) => {
+  try {
+    const clienteId = req.user.id;
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select('*')
+      .eq('id_cliente', clienteId)
+      .order('fecha_pedido', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Error obteniendo pedidos del cliente' });
+    }
+
+    return res.json({ pedidos: data });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+
 // Obtener un pedido por ID
 export const getPedidoById = async (req, res) => {
   const { id } = req.params

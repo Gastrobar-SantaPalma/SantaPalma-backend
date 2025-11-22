@@ -42,6 +42,8 @@ export const getProductos = async (req, res) => {
         disponible,
         imagen_url,
         id_categoria,
+        promedio_calificacion,
+        cantidad_calificaciones,
         categorias ( id_categoria, nombre )
       `, { count: 'exact' })
     // If category filter is provided, verify the category exists
@@ -99,6 +101,8 @@ export const getProductoById = async (req, res) => {
         disponible,
         imagen_url,
         id_categoria,
+        promedio_calificacion,
+        cantidad_calificaciones,
         categorias ( id_categoria, nombre )
       `)
       .eq('id_producto', id)
@@ -110,6 +114,22 @@ export const getProductoById = async (req, res) => {
     }
 
     if (!data) return res.status(404).json({ error: 'Producto no encontrado' })
+
+    // Fetch last 5 comments
+    const { data: comments, error: commentsErr } = await supabase
+      .from('calificaciones_producto')
+      .select('id_calificacion, puntuacion, comentario, fecha_creacion')
+      .eq('id_producto', id)
+      .order('fecha_creacion', { ascending: false })
+      .limit(5)
+
+    if (commentsErr) {
+      console.warn('Error fetching comments:', commentsErr.message)
+      // Return empty array on error to avoid breaking the UI, but log it.
+      // In strict mode, we might want to return 500, but for auxiliary data like comments, degradation is preferred.
+    }
+    
+    data.comentarios = comments || []
 
     res.status(200).json(data)
   } catch (err) {
@@ -355,6 +375,111 @@ export const deleteProducto = async (req, res) => {
     res.status(204).send()
   } catch (err) {
     console.error('Error interno al eliminar producto:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
+}
+
+// Calificar un producto
+export const rateProduct = async (req, res) => {
+  const { id } = req.params
+  const { puntuacion, comentario } = req.body
+  const id_usuario = req.user.id
+
+  // Validate product ID
+  const productId = parseInt(id, 10)
+  if (isNaN(productId)) return res.status(400).json({ error: 'ID de producto inválido' })
+
+  // Validate score type and range
+  if (typeof puntuacion !== 'number' || !Number.isInteger(puntuacion) || puntuacion < 1 || puntuacion > 5) {
+    return res.status(400).json({ error: 'Puntuación inválida (debe ser un entero entre 1 y 5)' })
+  }
+
+  try {
+    // 1. Validate Purchase: Check if user has a paid order containing this product
+    const { data: orders, error: orderErr } = await supabase
+      .from('pedidos')
+      .select('id_pedido, items, pago')
+      .eq('id_cliente', id_usuario)
+      .eq('pago', 'pagado')
+    
+    if (orderErr) {
+      console.error('Error checking orders:', orderErr.message)
+      return res.status(500).json({ error: 'Error interno verificando compra' })
+    }
+
+    // Check if any order contains the product
+    const validOrder = orders.find(order => {
+      if (!Array.isArray(order.items)) return false
+      return order.items.some(item => Number(item.id_producto) === productId)
+    })
+
+    if (!validOrder) {
+      return res.status(403).json({ error: 'Debes comprar y pagar el producto para calificarlo' })
+    }
+
+    // 2. Upsert Rating
+    // Note: We do NOT set fecha_creacion here to allow the DB default (NOW()) to persist on updates if desired,
+    // or if we want to update the timestamp on edit, we should use a separate 'updated_at' column.
+    // For now, we'll let the DB handle creation time and only update score/comment.
+    const { data, error } = await supabase
+      .from('calificaciones_producto')
+      .upsert({
+        id_producto: productId,
+        id_usuario: id_usuario,
+        id_pedido: validOrder.id_pedido,
+        puntuacion,
+        comentario
+      }, { onConflict: 'id_producto, id_usuario' })
+      .select()
+
+    if (error) {
+      console.error('Error saving rating:', error.message)
+      // Check for foreign key violation (product not found)
+      if (error.code === '23503') { // PostgreSQL foreign_key_violation
+         return res.status(404).json({ error: 'Producto no encontrado' })
+      }
+      return res.status(500).json({ error: 'Error guardando calificación' })
+    }
+
+    res.status(200).json(data?.[0] || { success: true })
+  } catch (err) {
+    console.error('Error in rateProduct:', err)
+    res.status(500).json({ error: 'Error interno' })
+  }
+}
+
+// Obtener comentarios paginados
+export const getProductComments = async (req, res) => {
+  const { id } = req.params
+  const { page = 1, limit = 5 } = req.query
+  
+  const productId = parseInt(id, 10)
+  if (isNaN(productId)) return res.status(400).json({ error: 'ID de producto inválido' })
+
+  const p = Math.max(parseInt(page, 10) || 1, 1)
+  const l = Math.min(Math.max(parseInt(limit, 10) || 5, 1), 50)
+  const start = (p - 1) * l
+  const end = start + l - 1
+
+  try {
+    const { data, count, error } = await supabase
+      .from('calificaciones_producto')
+      .select('id_calificacion, puntuacion, comentario, fecha_creacion', { count: 'exact' })
+      .eq('id_producto', productId)
+      .order('fecha_creacion', { ascending: false })
+      .range(start, end)
+
+    if (error) {
+      console.error('Error fetching comments:', error.message)
+      return res.status(500).json({ error: 'Error obteniendo comentarios' })
+    }
+
+    const total = count || 0
+    const totalPages = Math.ceil(total / l) || 0
+
+    res.status(200).json({ page: p, limit: l, total, totalPages, comments: data })
+  } catch (err) {
+    console.error('Error in getProductComments:', err)
     res.status(500).json({ error: 'Error interno' })
   }
 }

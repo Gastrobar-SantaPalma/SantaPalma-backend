@@ -262,6 +262,30 @@ export const updatePedidoMesa = async (req, res) => {
   }
 }
 
+// Obtener pedidos del cliente autenticado
+export const getPedidosDelCliente = async (req, res) => {
+  try {
+    const clienteId = req.user.id;
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select('id_pedido, id_cliente, id_mesa, estado, total, pago, fecha_pedido, items')
+      .eq('id_cliente', clienteId)
+      .order('fecha_pedido', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Error obteniendo pedidos del cliente' });
+    }
+
+    return res.json({ pedidos: data });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+
 // Obtener un pedido por ID
 export const getPedidoById = async (req, res) => {
   const { id } = req.params

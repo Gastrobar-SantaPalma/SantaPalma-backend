@@ -3,6 +3,13 @@ import mesaService from '../services/mesa.service.js'
 /**
  * Controlador para gestionar las mesas.
  */
+
+/**
+ * Obtiene todas las mesas.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getMesas = async (req, res) => {
   try {
     const mesas = await mesaService.getMesas()
@@ -13,6 +20,12 @@ export const getMesas = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene una mesa por su ID.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getMesaById = async (req, res) => {
   const { id } = req.params
   try {
@@ -27,6 +40,12 @@ export const getMesaById = async (req, res) => {
   }
 }
 
+/**
+ * Crea una nueva mesa.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const createMesa = async (req, res) => {
   try {
     const nuevaMesa = await mesaService.createMesa(req.body)
@@ -37,6 +56,12 @@ export const createMesa = async (req, res) => {
   }
 }
 
+/**
+ * Actualiza una mesa existente.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updateMesa = async (req, res) => {
   const { id } = req.params
   try {
@@ -51,6 +76,12 @@ export const updateMesa = async (req, res) => {
   }
 }
 
+/**
+ * Elimina una mesa.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const deleteMesa = async (req, res) => {
   const { id } = req.params
   try {

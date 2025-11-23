@@ -1,11 +1,12 @@
 import { generateAndUploadQr } from '../services/qr.service.js'
 
 /**
- * POST /api/mesas/:id/generate-qr
- * Generates a QR (PNG or PDF) for the given mesa id. Protected route for admins.
- * Query params:
- * - format=pdf -> returns application/pdf, otherwise returns image/png
- * - venueId (optional) -> if provided, used in the URL; otherwise falls back to ENV VENUE_ID or '1'
+ * Genera un código QR (PNG o PDF) para una mesa específica.
+ * Ruta protegida para administradores.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
  */
 export async function generateQr (req, res) {
   const { id } = req.params

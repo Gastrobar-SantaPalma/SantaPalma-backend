@@ -1,6 +1,11 @@
 import usuarioService from '../services/usuario.service.js'
 
-// Obtener todos los usuarios
+/**
+ * Obtiene todos los usuarios.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getUsuarios = async (req, res) => {
   try {
     const usuarios = await usuarioService.getUsuarios()
@@ -11,7 +16,12 @@ export const getUsuarios = async (req, res) => {
   }
 }
 
-// Obtener un usuario por ID
+/**
+ * Obtiene un usuario por su ID.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getUsuarioById = async (req, res) => {
   const { id } = req.params
   try {
@@ -26,7 +36,12 @@ export const getUsuarioById = async (req, res) => {
   }
 }
 
-// Crear un nuevo usuario
+/**
+ * Crea un nuevo usuario.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const createUsuario = async (req, res) => {
   try {
     const nuevoUsuario = await usuarioService.createUsuario(req.body)
@@ -40,7 +55,12 @@ export const createUsuario = async (req, res) => {
   }
 }
 
-// Actualizar un usuario existente
+/**
+ * Actualiza un usuario existente.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updateUsuario = async (req, res) => {
   const { id } = req.params
   try {
@@ -58,7 +78,12 @@ export const updateUsuario = async (req, res) => {
   }
 }
 
-// Eliminar usuario
+/**
+ * Elimina un usuario.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const deleteUsuario = async (req, res) => {
   const { id } = req.params
   try {

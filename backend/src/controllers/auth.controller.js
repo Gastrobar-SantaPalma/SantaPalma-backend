@@ -6,6 +6,13 @@ const failedLogins = {} // { [email]: { count, firstAttemptTs } }
 const MAX_ATTEMPTS = 5
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 
+/**
+ * Registra un nuevo usuario cliente.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const signup = async (req, res) => {
   try {
     const newUser = await authService.signup(req.body)
@@ -22,6 +29,13 @@ export const signup = async (req, res) => {
   }
 }
 
+/**
+ * Inicia sesión de usuario.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const login = async (req, res) => {
   try {
     const { correo, contrasena } = req.body

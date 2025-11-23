@@ -3,7 +3,10 @@ import multer from 'multer'
 // Use memory storage so we can forward the buffer to Supabase SDK
 const storage = multer.memoryStorage()
 
-// Accept only image mimetypes and limit size to 5 MB
+/**
+ * Middleware de Multer para carga de imágenes.
+ * Almacena en memoria, limita a 5MB y filtra por tipo de imagen (JPEG, PNG, WEBP).
+ */
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB

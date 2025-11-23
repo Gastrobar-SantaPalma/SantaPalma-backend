@@ -1,11 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
-//import auditoriaRoutes from './routes/auditoria.routes.js'
+import auditoriaRoutes from './routes/auditoria.routes.js'
 import mesasRoutes from './routes/mesas.route.js'
-import paymentsRoutes from './routes/payments.routes.js'
-import paymentsController from './controllers/payments.controller.js'
-//import pagosRoutes from './routes/pagos.routes.js'
+//import paymentsRoutes from './routes/payments.routes.js'
+//import paymentsController from './controllers/payments.controller.js'
+import pagosRoutes from './routes/pagos.routes.js'
+import { wompiWebhook } from './controllers/pagos.controller.js'
 import pedidosRoutes from './routes/pedidos.routes.js'
 import productosRoutes from './routes/productos.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
@@ -54,16 +55,16 @@ const corsOptions = {
 app.use(cors(corsOptions))
 
 // Mount webhook route with raw body parser BEFORE express.json so we can verify signatures
-app.post('/api/webhooks/wompi', express.raw({ type: 'application/json' }), paymentsController.wompiWebhook)
+app.post('/api/webhooks/wompi', express.raw({ type: 'application/json' }), wompiWebhook)
 
 // Note: avoid app.options('*', ...) because path-to-regexp rejects '*'.
 // app.use(cors(corsOptions)) is sufficient to handle preflight requests.
 app.use(express.json())
 
 app.use('/api/mesas', mesasRoutes)
-app.use('/api/payments', paymentsRoutes)
-//app.use('/api/auditoria', auditoriaRoutes)
-//app.use('/api/pagos', pagosRoutes)
+//app.use('/api/payments', paymentsRoutes)
+app.use('/api/auditoria', auditoriaRoutes)
+app.use('/api/pagos', pagosRoutes)
 app.use('/api/pedidos', pedidosRoutes)
 app.use('/api/productos', productosRoutes)
 app.use('/api/categorias', categoriasRoutes)

@@ -12,6 +12,8 @@ import {
 } from '../controllers/pedidos.controller.js'
 
 import { authMiddleware, requireAnyRole } from '../middlewares/auth.middleware.js'
+import { validate } from '../middlewares/validate.middleware.js'
+import { createPedidoSchema, updatePedidoSchema } from '../schemas/pedido.schema.js'
 
 const router = express.Router()
 
@@ -29,8 +31,8 @@ router.get('/:id', authMiddleware, getPedidoById)
 
 
 // Create and modify orders
-router.post('/', authMiddleware, createPedido)
-router.put('/:id', authMiddleware, updatePedido)
+router.post('/', authMiddleware, validate(createPedidoSchema), createPedido)
+router.put('/:id', authMiddleware, validate(updatePedidoSchema), updatePedido)
 router.delete('/:id', authMiddleware, requireAnyRole('admin', 'staff'), deletePedido)
 
 // Staff endpoints to change estado and mesa

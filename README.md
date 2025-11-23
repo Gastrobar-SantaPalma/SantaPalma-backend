@@ -1,36 +1,41 @@
-(The file `c:\Users\usuario\OneDrive\Documents\ACADEMICO\SEPTIMO SEMESTRE\INTRODUCCI\u00d3N A LA GESTI\u00d3N DE PROYECTOS DE SOFTWARE\backen andres\SantaPalma-Backend\README.md` exists, but is empty)
-## SantaPalma Backend
+# SantaPalma Backend
 
 API REST para Gastrobar SantaPalma — servidor Node.js + Express (ES modules) usando Supabase como base de datos y autenticación.
 
-Contenido
-- Descripción
-- Requisitos
-- Instalación y ejecución
-- Variables de entorno
-- Endpoints principales
-- Flujo de autenticación y roles
-- Cómo crear el primer admin
-- Validaciones y reglas importantes
-- Recomendaciones de despliegue
-- Contribuir
+## Contenido
+- [Descripción](#descripción)
+- [Arquitectura](#arquitectura)
+- [Requisitos](#requisitos)
+- [Instalación y ejecución](#instalación-y-ejecución-local)
+- [Variables de entorno](#variables-de-entorno-mínimas)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Testing](#testing)
+- [Endpoints principales](#endpoints-principales-resumen)
+- [Autenticación y roles](#autenticación-y-roles)
+- [Módulos](#módulos)
 
-Descripción
------------
-Este repositorio contiene el backend para la aplicación de SantaPalma. Proporciona recursos en español para gestionar: usuarios (`usuarios`), productos (`productos`), categorías (`categorias`), pedidos (`pedidos`), mesas (`mesas`) y pagos (`pagos`).
+## Descripción
+Este repositorio contiene el backend para la aplicación de SantaPalma. Proporciona recursos para gestionar: usuarios, productos, categorías, pedidos, mesas, pagos y auditoría.
 
 El backend está diseñado para soportar dos tipos de usuarios principales:
-- cliente: puede registrarse públicamente y usar la app cliente para ver productos y realizar pedidos.
-- admin: gestiona productos, categorías y pedidos desde el panel administrativo.
+- **cliente**: puede registrarse públicamente y usar la app cliente para ver productos y realizar pedidos.
+- **admin**: gestiona productos, categorías, pedidos, mesas y usuarios desde el panel administrativo.
 
-Requisitos
-----------
-- Node.js 18+ (recomendado) o la versión que tengas disponible
+## Arquitectura
+El proyecto sigue una **Arquitectura por Capas** para asegurar la separación de responsabilidades, mantenibilidad y testabilidad:
+
+1.  **Routes (`src/routes/`)**: Definen los endpoints y aplican middlewares (autenticación, validación).
+2.  **Controllers (`src/controllers/`)**: Manejan la petición HTTP, extraen datos y llaman a los servicios.
+3.  **Services (`src/services/`)**: Contienen la lógica de negocio pura. No saben de HTTP (req/res).
+4.  **Repositories (`src/repositories/`)**: Encapsulan el acceso a datos (Supabase).
+5.  **Schemas (`src/schemas/`)**: Definiciones de validación con Joi.
+
+## Requisitos
+- Node.js 18+ (recomendado)
 - npm
 - Cuenta y proyecto en Supabase (URL + API KEY)
 
-Instalación y ejecución (local)
---------------------------------
+## Instalación y ejecución (local)
 1. Clona el repositorio y entra al directorio:
 
 ```powershell
@@ -51,113 +56,88 @@ npm install
 npm run dev
 ```
 
-El servidor por defecto corre en el puerto `4000` (o el que pongas en `PORT`).
+El servidor por defecto corre en el puerto `4000`.
 
-Variables de entorno (mínimas)
------------------------------
-Coloca estas variables en tu `.env` (no subir `.env` al repo):
+## Variables de entorno (mínimas)
+Coloca estas variables en tu `.env`:
 
-- SUPABASE_URL=<your-supabase-url>
-- SUPABASE_KEY=<your-supabase-key>
-- JWT_SECRET=<una-cadena-secreta-larga-para-firmar-jwt>
-- CLIENT_URL=http://localhost:5173 (opcional, para CORS)
-- PORT=4000 (opcional)
-
-Endpoints principales (resumen)
-------------------------------
-Rutas principales (montadas bajo `/api`):
-- `POST /api/auth/signup` — registrar cliente (público). Body: { nombre, correo, contrasena }
-- `POST /api/usuarios/login` — login. Body: { correo, contrasena } -> devuelve { token, usuario }
-- `GET /api/productos` — listar productos (soporta page, limit, category, search)
-- `POST /api/productos` — crear producto (admin-only)
-- `PUT /api/productos/:id` — actualizar producto (admin-only)
-- `DELETE /api/productos/:id` — eliminar producto (admin-only)
-- `GET /api/categorias` — listar categorías
-- `POST /api/categorias` — crear categoría (admin-only)
-- `PUT /api/categorias/:id` — actualizar categoría (admin-only)
-- `DELETE /api/categorias/:id` — eliminar categoría (admin-only)
-- `POST /api/pedidos` — crear pedido (pendiente: validación total/items)
-
-Autenticación y roles
-----------------------
-- El proyecto usa JWT firmado con `JWT_SECRET`. El login devuelve un token JWT con el payload mínimo `{ id, correo, rol }`.
-- Para rutas protegidas, añade el header:
-
-```
-Authorization: Bearer <token>
+```env
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_KEY=<your-supabase-key>
+JWT_SECRET=<una-cadena-secreta-larga-para-firmar-jwt>
+CLIENT_URL=http://localhost:5173
+PORT=4000
+WOMPI_PUB_KEY=<wompi-public-key>
+WOMPI_PRV_KEY=<wompi-private-key>
+WOMPI_INTEGRITY_SECRET=<wompi-integrity-secret>
+WOMPI_EVENT_SECRET=<wompi-event-secret>
 ```
 
-- El middleware `authMiddleware` valida el token. Para restringir una ruta a administradores, las rutas usan `requireRole('admin')`.
+## Estructura del Proyecto
 
-Cómo crear el primer admin
---------------------------
-Hay dos maneras seguras para crear/promover un admin:
+```
+backend/
+├── src/
+│   ├── config/         # Configuración (Supabase client)
+│   ├── controllers/    # Controladores (HTTP handlers)
+│   ├── middlewares/    # Middlewares (Auth, ErrorHandler, Upload, Validate)
+│   ├── repositories/   # Acceso a datos (Supabase queries)
+│   ├── routes/         # Definición de rutas Express
+│   ├── schemas/        # Esquemas de validación Joi
+│   ├── services/       # Lógica de negocio
+│   ├── utils/          # Utilidades (cálculos, formateo)
+│   └── server.js       # Punto de entrada
+├── tests/              # Tests unitarios (Jest)
+└── scripts/            # Scripts de utilidad/migración
+```
 
-1) SQL directo (recomendado para el primer admin).
+## Testing
+El proyecto utiliza **Jest** para pruebas unitarias. Los tests están ubicados en `backend/tests/`.
 
-	a) Genera el hash bcrypt localmente (en tu máquina):
-
+Para ejecutar todos los tests:
 ```powershell
-node -e "console.log(require('bcryptjs').hashSync('AdminPass123!', 10))"
+npm test
 ```
 
-	b) Copia el hash y ejecuta en el editor SQL del proyecto Supabase:
+## Endpoints principales (resumen)
 
-```sql
-INSERT INTO usuarios (nombre, correo, contrasena_hash, rol, fecha_registro)
-VALUES ('Admin Inicial', 'admin@example.com', '<COPIA_EL_HASH_AQUI>', 'admin', now());
-```
+### Auth
+- `POST /api/auth/signup` — Registrar cliente.
+- `POST /api/auth/login` — Iniciar sesión.
 
-2) Promover un usuario existente a admin (también por SQL):
+### Usuarios
+- `GET /api/usuarios` — Listar usuarios (Admin).
+- `GET /api/usuarios/:id` — Obtener usuario.
+- `PUT /api/usuarios/:id` — Actualizar usuario.
 
-```sql
-UPDATE usuarios SET rol = 'admin' WHERE correo = 'usuario@example.com';
-```
+### Productos
+- `GET /api/productos` — Listar productos (filtros: page, limit, category, search).
+- `POST /api/productos` — Crear producto (Admin).
+- `PUT /api/productos/:id` — Actualizar producto (Admin).
 
-Nota: el proyecto incluye un endpoint admin-only `POST /api/admin/create` para que un admin autenticado pueda crear otros admins sin tocar la DB.
+### Pedidos
+- `GET /api/pedidos` — Listar pedidos.
+- `POST /api/pedidos` — Crear pedido.
+- `PUT /api/pedidos/:id` — Actualizar pedido.
+- `PATCH /api/pedidos/:id/estado` — Cambiar estado.
 
-Validaciones y restricciones importantes
----------------------------------------
-- Los controladores del servidor validan campos requeridos y evitan duplicados a nivel de aplicación:
-	- `productos`: `nombre`, `precio` y `id_categoria` no pueden ser nulos al crear. Se evita crear productos con el mismo nombre dentro de la misma categoría (case-insensitive).
-	- `categorias`: `nombre` es requerido y único (case-insensitive).
+### Pagos
+- `POST /api/pagos/transaction` — Iniciar transacción Wompi.
+- `POST /api/pagos/webhook` — Webhook para eventos de Wompi.
 
-- Recomendación fuerte: aplicar restricciones a nivel de base de datos para evitar condiciones de carrera y garantizar integridad:
-	- Índice único en categorías: `CREATE UNIQUE INDEX unique_categoria_nombre ON categorias (LOWER(nombre));`
-	- Índice único en productos por categoría: `CREATE UNIQUE INDEX unique_producto_categoria_nombre ON productos (id_categoria, LOWER(nombre));`
-	- Marcar columnas obligatorias (`NOT NULL`) en migraciones para `nombre`, `precio`, `id_categoria`, etc.
+### Auditoría
+- `GET /api/auditoria` — Ver historial de eventos (Admin).
 
-Pruebas rápidas (PowerShell examples)
--------------------------------------
-- Signup (cliente):
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/signup -Body (ConvertTo-Json @{ nombre = "Cliente"; correo = "cliente@example.com"; contrasena = "ClientePass1!" }) -ContentType 'application/json'
-```
+## Autenticación y roles
+- El proyecto usa JWT firmado con `JWT_SECRET`.
+- Header requerido para rutas protegidas: `Authorization: Bearer <token>`.
+- Roles soportados: `admin`, `cliente`, `mesero`.
 
-- Login:
-```powershell
-$login = Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/usuarios/login -Body (ConvertTo-Json @{ correo = "admin@example.com"; contrasena = "AdminPass123!" }) -ContentType 'application/json'
-$token = $login.token
-```
-
-- Crear categoría (admin):
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/categorias -Headers @{ Authorization = "Bearer $token" } -Body (ConvertTo-Json @{ nombre = "Bebidas"; descripcion = "Refrescos" }) -ContentType 'application/json'
-```
-
-Despliegue y recomendaciones
-----------------------------
-- No subir `.env` al repositorio. Configura las mismas variables en el panel de tu proveedor (Render/Vercel/Heroku).
-- Asegura `JWT_SECRET` con un valor largo y aleatorio en producción.
-- Aplica índices únicos y NOT NULL en la base de datos para garantizar integridad.
-- Añade pruebas automatizadas y un workflow de CI para ejecutar pruebas en PRs.
-
-Contribuir
-----------
-- Sigue la convención de ramas: `feature/<hu-id>` o `fix/<issue-id>`.
-- Haz commits pequeños y atómicos y abre PRs cuando la historia de usuario esté completa.
-
-Contacto
---------
-Para preguntas sobre el backend o el flujo de despliegue contacta al equipo de desarrollo del proyecto.
-
+## Módulos
+- **Auth**: Gestión de registro y login.
+- **Usuarios**: Gestión de perfiles y roles.
+- **Productos/Categorías**: Catálogo del menú.
+- **Mesas**: Gestión de mesas y códigos QR.
+- **Pedidos**: Ciclo de vida del pedido (pendiente -> preparando -> listo -> entregado).
+- **Pagos**: Integración con pasarela de pagos (Wompi).
+- **Auditoria**: Registro de eventos críticos del sistema.

@@ -1,4 +1,5 @@
 import authService from '../services/auth.service.js'
+import usuarioService from '../services/usuario.service.js'
 import jwt from 'jsonwebtoken'
 
 // Simple in-memory rate limiter for login attempts per email
@@ -74,5 +75,27 @@ export const login = async (req, res) => {
   } catch (err) {
     console.error('Error en login:', err)
     res.status(500).json({ error: 'Error interno al autenticar' })
+  }
+}
+
+/**
+ * Obtiene la información del usuario autenticado actual.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
+export const getMe = async (req, res) => {
+  try {
+    // req.user is populated by authMiddleware
+    const userId = req.user.id
+    const usuario = await usuarioService.getUsuarioById(userId)
+    res.json(usuario)
+  } catch (error) {
+    console.error('Error en getMe:', error)
+    if (error.message === 'Usuario no encontrado') {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
 }

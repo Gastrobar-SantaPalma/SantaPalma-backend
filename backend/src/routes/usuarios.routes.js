@@ -15,16 +15,16 @@ const router = express.Router()
 /**
  * @route GET /api/usuarios
  * @desc Obtener todos los usuarios
- * @access Public (Should be protected in production)
+ * @access Private (Authenticated)
  */
-router.get('/', getUsuarios)
+router.get('/', authMiddleware, getUsuarios)
 
 /**
  * @route GET /api/usuarios/:id
  * @desc Obtener un usuario por ID
- * @access Public (Should be protected in production)
+ * @access Private (Authenticated)
  */
-router.get('/:id', getUsuarioById)
+router.get('/:id', authMiddleware, getUsuarioById)
 
 /**
  * @route POST /api/usuarios

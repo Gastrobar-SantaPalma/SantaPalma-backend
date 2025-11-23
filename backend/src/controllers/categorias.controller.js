@@ -1,158 +1,69 @@
-import supabase from '../config/supabaseClient.js'
+import categoriaService from '../services/categoria.service.js'
 
-// Listar todas las categorias
+/**
+ * Controlador para gestionar las categorías.
+ */
 export const getCategorias = async (req, res) => {
-  const { data, error } = await supabase
-    .from('categorias')
-    .select(`
-      id_categoria,
-      nombre,
-      descripcion,
-      activo
-    `)
-
-  if (error) {
-    console.error('Error al obtener categorias:', error.message)
-    return res.status(500).json({ error: error.message })
+  try {
+    const categorias = await categoriaService.getCategorias()
+    res.json(categorias)
+  } catch (error) {
+    console.error('Error al obtener categorías:', error)
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
-
-  res.status(200).json(data)
 }
 
-// Obtener categoria por ID
 export const getCategoriaById = async (req, res) => {
   const { id } = req.params
-
-  const { data, error } = await supabase
-    .from('categorias')
-    .select(`
-      id_categoria,
-      nombre,
-      descripcion,
-      activo
-    `)
-    .eq('id_categoria', id)
-    .single()
-
-  if (error) {
-    console.error('Error al obtener categoria:', error.message)
-    return res.status(404).json({ error: 'Categoria no encontrada' })
+  try {
+    const categoria = await categoriaService.getCategoriaById(id)
+    res.json(categoria)
+  } catch (error) {
+    console.error('Error al obtener categoría:', error)
+    if (error.message === 'Categoria no encontrada') {
+      return res.status(404).json({ error: error.message })
+    }
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
-
-  res.status(200).json(data)
 }
 
-// Crear categoria
 export const createCategoria = async (req, res) => {
   try {
-    const { nombre, descripcion, activo = true } = req.body
-
-    if (!nombre) return res.status(400).json({ error: 'nombre es requerido' })
-
-    // check duplicate category name (case-insensitive)
-    const { data: existing, error: selErr } = await supabase
-      .from('categorias')
-      .select('id_categoria')
-      .ilike('nombre', nombre)
-
-    if (selErr) {
-      console.error('Error checking existing categoria:', selErr.message)
-      return res.status(500).json({ error: 'Error interno' })
+    const nuevaCategoria = await categoriaService.createCategoria(req.body)
+    res.status(201).json(nuevaCategoria)
+  } catch (error) {
+    console.error('Error al crear categoría:', error)
+    if (error.message === 'Ya existe una categoría con ese nombre') {
+      return res.status(409).json({ error: error.message })
     }
-
-    if (existing && existing.length > 0) {
-      return res.status(409).json({ error: 'Ya existe una categoría con ese nombre' })
-    }
-
-    const { data, error } = await supabase
-      .from('categorias')
-      .insert([{ nombre, descripcion, activo }])
-      .select(`id_categoria, nombre, descripcion, activo`)
-
-    if (error) {
-      // If the DB does not have the 'activo' column (schema mismatch), retry without it
-      console.error('Error al crear categoria:', error.message)
-      if (error.message && error.message.includes("Could not find the 'activo' column")) {
-        const { data: fallbackData, error: fallbackErr } = await supabase
-          .from('categorias')
-          .insert([{ nombre, descripcion }])
-          .select('id_categoria, nombre, descripcion')
-
-        if (fallbackErr) {
-          console.error('Fallback error al crear categoria:', fallbackErr.message)
-          return res.status(400).json({ error: fallbackErr.message })
-        }
-
-        return res.status(201).json(fallbackData[0])
-      }
-
-      return res.status(400).json({ error: error.message })
-    }
-
-    res.status(201).json(data[0])
-  } catch (err) {
-    console.error('Error interno al crear categoria:', err)
-    res.status(500).json({ error: 'Error interno' })
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
 }
 
-// Actualizar categoria
 export const updateCategoria = async (req, res) => {
   const { id } = req.params
-  const { nombre, descripcion, activo } = req.body
   try {
-    // Prevent nulls
-    if (nombre === null) return res.status(400).json({ error: 'nombre no puede ser null' })
-
-    // If nombre provided, check duplicate excluding current id
-    if (nombre) {
-      const { data: dup, error: dupErr } = await supabase
-        .from('categorias')
-        .select('id_categoria')
-        .ilike('nombre', nombre)
-        .neq('id_categoria', id)
-
-      if (dupErr) {
-        console.error('Error checking duplicate categoria:', dupErr.message)
-        return res.status(500).json({ error: 'Error interno' })
-      }
-
-      if (dup && dup.length > 0) return res.status(409).json({ error: 'Ya existe una categoría con ese nombre' })
+    const categoriaActualizada = await categoriaService.updateCategoria(id, req.body)
+    res.json(categoriaActualizada)
+  } catch (error) {
+    console.error('Error al actualizar categoría:', error)
+    if (error.message === 'Categoria no encontrada') {
+      return res.status(404).json({ error: error.message })
     }
-
-    const { data, error } = await supabase
-      .from('categorias')
-      .update({ nombre, descripcion, activo })
-      .eq('id_categoria', id)
-      .select(`id_categoria, nombre, descripcion, activo`)
-
-    if (error) {
-      console.error('Error al actualizar categoria:', error.message)
-      return res.status(400).json({ error: error.message })
+    if (error.message === 'Ya existe una categoría con ese nombre') {
+      return res.status(409).json({ error: error.message })
     }
-
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Categoria no encontrada' })
-
-    res.status(200).json(data[0])
-  } catch (err) {
-    console.error('Error interno al actualizar categoria:', err)
-    res.status(500).json({ error: 'Error interno' })
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
 }
 
-// Eliminar categoria
 export const deleteCategoria = async (req, res) => {
   const { id } = req.params
-
-  const { error } = await supabase
-    .from('categorias')
-    .delete()
-    .eq('id_categoria', id)
-
-  if (error) {
-    console.error('Error al eliminar categoria:', error.message)
-    return res.status(400).json({ error: error.message })
+  try {
+    await categoriaService.deleteCategoria(id)
+    res.status(204).send()
+  } catch (error) {
+    console.error('Error al eliminar categoría:', error)
+    res.status(500).json({ error: 'Error interno del servidor' })
   }
-
-  res.status(204).send()
 }

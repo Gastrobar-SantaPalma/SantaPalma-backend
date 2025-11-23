@@ -1,5 +1,4 @@
-import supabase from '../config/supabaseClient.js'
-import bcrypt from 'bcryptjs'
+import usuarioService from '../services/usuario.service.js'
 
 // Create an admin user (requires an authenticated admin to call)
 export const createAdmin = async (req, res) => {
@@ -9,44 +8,19 @@ export const createAdmin = async (req, res) => {
       return res.status(400).json({ error: 'nombre, correo y contrasena son requeridos' })
     }
 
-    // check existing
-    const { data: existing, error: selError } = await supabase
-      .from('usuarios')
-      .select('id_usuario')
-      .eq('correo', correo)
+    const newUser = await usuarioService.createUsuario({
+      nombre,
+      correo,
+      contrasena,
+      rol: 'admin'
+    })
 
-    if (selError) {
-      console.error('Error checking existing user:', selError.message)
-      return res.status(500).json({ error: 'Error interno' })
-    }
-
-    if (existing && existing.length > 0) {
-      return res.status(409).json({ error: 'Este correo ya está registrado' })
-    }
-
-    const contrasena_hash = await bcrypt.hash(contrasena, 10)
-
-    const { data, error } = await supabase
-      .from('usuarios')
-      .insert([
-        {
-          nombre,
-          correo,
-          contrasena_hash,
-          rol: 'admin',
-          fecha_registro: new Date().toISOString()
-        }
-      ])
-      .select('id_usuario')
-
-    if (error) {
-      console.error('Error creating admin usuario:', error.message)
-      return res.status(400).json({ error: error.message })
-    }
-
-    return res.status(201).json({ id_usuario: data[0].id_usuario })
+    return res.status(201).json({ id_usuario: newUser.id_usuario })
   } catch (err) {
     console.error('createAdmin error:', err)
+    if (err.message === 'El correo ya está registrado') {
+      return res.status(409).json({ error: err.message })
+    }
     return res.status(500).json({ error: 'Error interno' })
   }
 }
@@ -61,22 +35,14 @@ export const changeUserRole = async (req, res) => {
     const allowed = ['admin', 'cliente']
     if (!allowed.includes(rol)) return res.status(400).json({ error: 'rol inválido' })
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .update({ rol })
-      .eq('id_usuario', id)
-      .select('id_usuario, nombre, correo, rol')
+    const updatedUser = await usuarioService.updateUsuario(id, { rol })
 
-    if (error) {
-      console.error('Error updating role:', error.message)
-      return res.status(400).json({ error: error.message })
-    }
-
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' })
-
-    return res.status(200).json({ user: data[0] })
+    return res.status(200).json({ user: updatedUser })
   } catch (err) {
     console.error('changeUserRole error:', err)
+    if (err.message === 'Usuario no encontrado') {
+      return res.status(404).json({ error: err.message })
+    }
     return res.status(500).json({ error: 'Error interno' })
   }
 }

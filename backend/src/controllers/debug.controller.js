@@ -1,17 +1,15 @@
-import supabase from '../config/supabaseClient.js'
+import pedidoService from '../services/pedido.service.js'
 
 export const getPedidoDebug = async (req, res) => {
   const { id } = req.params
   try {
-    const { data: byIdPedido, error: err1 } = await supabase
-      .from('pedidos')
-      .select('*')
-      .eq('id_pedido', id)
-      .maybeSingle()
-
-    return res.status(200).json({ byIdPedido, err1: err1 ? err1.message : null })
+    const { pedido } = await pedidoService.getPedidoById(id)
+    return res.status(200).json({ byIdPedido: pedido, err1: null })
   } catch (err) {
     console.error('Debug getPedido error:', err)
+    if (err.message === 'Pedido no encontrado') {
+      return res.status(404).json({ error: err.message })
+    }
     return res.status(500).json({ error: 'Error interno (debug)' })
   }
 }
@@ -29,13 +27,9 @@ export const updatePedidoDebug = async (req, res) => {
   if (!estado) return res.status(400).json({ error: 'estado es requerido' })
 
   try {
-    const r1 = await supabase
-      .from('pedidos')
-      .update({ estado })
-      .eq('id_pedido', id)
-      .select('*')
+    const updated = await pedidoService.updatePedidoEstado(id, estado)
     // Also return the parsed body so we can see what the server received
-    return res.status(200).json({ receivedBody: req.body || null, r1: { data: r1.data, error: r1.error ? r1.error.message : null } })
+    return res.status(200).json({ receivedBody: req.body || null, r1: { data: [updated], error: null } })
   } catch (err) {
     console.error('Debug updatePedido error:', err)
     return res.status(500).json({ error: 'Error interno (debug update)' })

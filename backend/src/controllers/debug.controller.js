@@ -1,5 +1,12 @@
 import pedidoService from '../services/pedido.service.js'
 
+/**
+ * Obtiene un pedido para depuración.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const getPedidoDebug = async (req, res) => {
   const { id } = req.params
   try {
@@ -14,6 +21,13 @@ export const getPedidoDebug = async (req, res) => {
   }
 }
 
+/**
+ * Actualiza el estado de un pedido para depuración.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const updatePedidoDebug = async (req, res) => {
   const { id } = req.params
   try {

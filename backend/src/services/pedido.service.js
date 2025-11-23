@@ -5,9 +5,16 @@ import mesaRepository from '../repositories/mesa.repository.js'
 import auditoriaService from './auditoria.service.js'
 import { calcularTotal } from '../utils/calculateTotal.js'
 
+/**
+ * Servicio para la lógica de negocio de Pedidos.
+ */
 class PedidoService {
   
-  // Helper: Normalize estado strings
+  /**
+   * Normaliza el estado del pedido.
+   * @param {string} input - Estado a normalizar.
+   * @returns {string} Estado normalizado.
+   */
   normalizeEstado(input) {
     if (input === undefined || input === null) return input
     const s = String(input)
@@ -33,6 +40,11 @@ class PedidoService {
     return s.replace(/\s+/g, '')
   }
 
+  /**
+   * Obtiene pedidos con filtros.
+   * @param {Object} filters - Filtros de búsqueda.
+   * @returns {Promise<Object>} Resultados paginados.
+   */
   async getPedidos(filters) {
     const { data, count, page, limit } = await pedidoRepository.findAll(filters)
     const totalPages = Math.ceil((count || 0) / limit) || 0
@@ -43,6 +55,12 @@ class PedidoService {
     return { page, limit, total: count || 0, totalPages, pedidos: data }
   }
 
+  /**
+   * Obtiene un pedido por ID.
+   * @param {number} id - ID del pedido.
+   * @returns {Promise<Object>} El pedido encontrado y su historial.
+   * @throws {Error} Si el pedido no existe.
+   */
   async getPedidoById(id) {
     const pedido = await pedidoRepository.findById(id)
     if (!pedido) throw new Error('Pedido no encontrado')
@@ -56,10 +74,21 @@ class PedidoService {
     return { pedido, history }
   }
 
+  /**
+   * Obtiene pedidos de un cliente.
+   * @param {number} clienteId - ID del cliente.
+   * @returns {Promise<Array<Object>>} Lista de pedidos.
+   */
   async getPedidosByCliente(clienteId) {
     return await pedidoRepository.findByClienteId(clienteId)
   }
 
+  /**
+   * Crea un nuevo pedido.
+   * @param {Object} data - Datos del pedido.
+   * @returns {Promise<Object>} El pedido creado.
+   * @throws {Error} Si faltan datos o son inválidos.
+   */
   async createPedido(data) {
     let { id_cliente, id_mesa, items, total } = data
 
@@ -115,6 +144,13 @@ class PedidoService {
     return newPedido
   }
 
+  /**
+   * Actualiza un pedido.
+   * @param {number} id - ID del pedido.
+   * @param {Object} updates - Datos a actualizar.
+   * @returns {Promise<Object>} El pedido actualizado.
+   * @throws {Error} Si el pedido no existe o los datos son inválidos.
+   */
   async updatePedido(id, updates) {
     let { id_cliente, id_mesa, estado, total, items, pago } = updates
 
@@ -183,6 +219,13 @@ class PedidoService {
     return updatedPedido
   }
 
+  /**
+   * Actualiza el estado de un pedido.
+   * @param {number} id - ID del pedido.
+   * @param {string} nuevoEstado - Nuevo estado.
+   * @returns {Promise<Object>} El pedido actualizado.
+   * @throws {Error} Si la transición de estado no es válida.
+   */
   async updatePedidoEstado(id, nuevoEstado) {
     nuevoEstado = this.normalizeEstado(nuevoEstado)
     if (!nuevoEstado) throw new Error('estado es requerido')
@@ -221,6 +264,13 @@ class PedidoService {
     return updated
   }
 
+  /**
+   * Actualiza la mesa de un pedido.
+   * @param {number} id - ID del pedido.
+   * @param {number} id_mesa - ID de la nueva mesa.
+   * @returns {Promise<Object>} El pedido actualizado.
+   * @throws {Error} Si la mesa no existe.
+   */
   async updatePedidoMesa(id, id_mesa) {
     if (!id_mesa) throw new Error('id_mesa es requerido')
 
@@ -239,6 +289,13 @@ class PedidoService {
     return updated
   }
 
+  /**
+   * Actualiza el estado de pago de un pedido.
+   * @param {number} id - ID del pedido.
+   * @param {string} pago - Nuevo estado de pago.
+   * @returns {Promise<Object>} El pedido actualizado.
+   * @throws {Error} Si el estado de pago no es válido.
+   */
   async updatePedidoPago(id, pago) {
     if (pago === undefined || pago === null) throw new Error('pago es requerido')
     
@@ -251,12 +308,23 @@ class PedidoService {
     return updated
   }
 
+  /**
+   * Elimina un pedido.
+   * @param {number} id - ID del pedido.
+   * @returns {Promise<void>}
+   */
   async deletePedido(id) {
     return await pedidoRepository.delete(id)
   }
 
   // --- Private Helpers ---
 
+  /**
+   * Procesa los items del pedido, validando productos y calculando subtotales.
+   * @param {Array<Object>} items - Items del pedido.
+   * @returns {Promise<Array<Object>>} Items procesados.
+   * @private
+   */
   async _processItems(items) {
     const processed = []
     const productIds = [...new Set(items.map(i => i.id_producto))]
@@ -290,6 +358,12 @@ class PedidoService {
     return processed
   }
 
+  /**
+   * Enriquece los pedidos con los nombres de los productos.
+   * @param {Array<Object>} pedidos - Lista de pedidos.
+   * @returns {Promise<void>}
+   * @private
+   */
   async _enrichPedidosWithProductNames(pedidos) {
     if (!pedidos || pedidos.length === 0) return
 
@@ -320,6 +394,13 @@ class PedidoService {
     }
   }
 
+  /**
+   * Obtiene el historial de un pedido.
+   * @param {number} id - ID del pedido.
+   * @param {Object} pedido - Objeto del pedido.
+   * @returns {Promise<Array<Object>>} Historial de eventos.
+   * @private
+   */
   async _getPedidoHistory(id, pedido) {
     // Try to fetch recent events from auditoria service
     let events = []

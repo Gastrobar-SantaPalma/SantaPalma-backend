@@ -1,6 +1,15 @@
 import supabase from '../config/supabaseClient.js'
 
+/**
+ * Repositorio para la entidad Productos.
+ */
 class ProductoRepository {
+  
+  /**
+   * Obtiene productos con filtros y paginación.
+   * @param {Object} filters - Filtros (page, limit, category, search).
+   * @returns {Promise<Object>} Datos y conteo total.
+   */
   async findAll({ page = 1, limit = 12, category, search }) {
     const p = Math.max(parseInt(page, 10) || 1, 1)
     const l = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 100)
@@ -34,6 +43,11 @@ class ProductoRepository {
     return { data, count, page: p, limit: l }
   }
 
+  /**
+   * Busca un producto por ID.
+   * @param {number} id - ID del producto.
+   * @returns {Promise<Object|null>} El producto encontrado.
+   */
   async findById(id) {
     const { data, error } = await supabase
       .from('productos')
@@ -56,6 +70,11 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Busca productos por una lista de IDs.
+   * @param {Array<number>} ids - Lista de IDs.
+   * @returns {Promise<Array<Object>>} Lista de productos.
+   */
   async findByIds(ids) {
     if (!ids || ids.length === 0) return []
     
@@ -68,6 +87,12 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Busca productos por nombre y categoría (para validación de duplicados).
+   * @param {string} nombre - Nombre del producto.
+   * @param {number} id_categoria - ID de la categoría.
+   * @returns {Promise<Array<Object>>} Lista de productos coincidentes.
+   */
   async findByNameAndCategory(nombre, id_categoria) {
     const { data, error } = await supabase
       .from('productos')
@@ -79,6 +104,12 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Busca productos por nombre excluyendo un ID (para validación de duplicados en update).
+   * @param {string} nombre - Nombre del producto.
+   * @param {number} id_producto - ID a excluir.
+   * @returns {Promise<Array<Object>>} Lista de productos coincidentes.
+   */
   async findByNameExcludingId(nombre, id_producto) {
     const { data, error } = await supabase
       .from('productos')
@@ -90,6 +121,11 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Crea un nuevo producto.
+   * @param {Object} productoData - Datos del producto.
+   * @returns {Promise<Object>} El producto creado.
+   */
   async create(productoData) {
     const { data, error } = await supabase
       .from('productos')
@@ -109,6 +145,12 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Actualiza un producto.
+   * @param {number} id - ID del producto.
+   * @param {Object} updates - Datos a actualizar.
+   * @returns {Promise<Object>} El producto actualizado.
+   */
   async update(id, updates) {
     const { data, error } = await supabase
       .from('productos')
@@ -129,6 +171,11 @@ class ProductoRepository {
     return data
   }
 
+  /**
+   * Elimina un producto.
+   * @param {number} id - ID del producto.
+   * @returns {Promise<boolean>} True si se eliminó correctamente.
+   */
   async delete(id) {
     const { error } = await supabase
       .from('productos')
@@ -139,7 +186,12 @@ class ProductoRepository {
     return true
   }
 
-  // Ratings & Comments
+  /**
+   * Obtiene comentarios de un producto.
+   * @param {number} productId - ID del producto.
+   * @param {Object} pagination - Paginación (page, limit).
+   * @returns {Promise<Object>} Comentarios paginados.
+   */
   async getComments(productId, { page = 1, limit = 5 }) {
     const p = Math.max(parseInt(page, 10) || 1, 1)
     const l = Math.min(Math.max(parseInt(limit, 10) || 5, 1), 50)
@@ -157,6 +209,11 @@ class ProductoRepository {
     return { data, count, page: p, limit: l }
   }
 
+  /**
+   * Crea o actualiza una calificación.
+   * @param {Object} ratingData - Datos de la calificación.
+   * @returns {Promise<Object>} La calificación creada o actualizada.
+   */
   async upsertRating(ratingData) {
     const { data, error } = await supabase
       .from('calificaciones_producto')

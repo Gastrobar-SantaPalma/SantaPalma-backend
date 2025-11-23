@@ -15,7 +15,9 @@ import categoriasRoutes from './routes/categorias.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import debugRoutes from './routes/debug.routes.js'
 
-
+/**
+ * Configuración e inicialización del servidor Express.
+ */
 
 const app = express()
 

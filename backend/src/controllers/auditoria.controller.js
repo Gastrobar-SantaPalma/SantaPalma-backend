@@ -1,6 +1,12 @@
 import auditoriaService from '../services/auditoria.service.js'
 
-// GET /api/auditoria
+/**
+ * Obtiene el historial de eventos de auditoría.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const getEventos = async (req, res) => {
   try {
     const { page, limit, id_pedido, from, to } = req.query

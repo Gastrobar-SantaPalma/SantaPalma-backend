@@ -1,7 +1,11 @@
 import categoriaService from '../services/categoria.service.js'
 
 /**
- * Controlador para gestionar las categorías.
+ * Obtiene todas las categorías.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
  */
 export const getCategorias = async (req, res) => {
   try {
@@ -13,6 +17,13 @@ export const getCategorias = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene una categoría por su ID.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const getCategoriaById = async (req, res) => {
   const { id } = req.params
   try {
@@ -27,6 +38,14 @@ export const getCategoriaById = async (req, res) => {
   }
 }
 
+/**
+ * Crea una nueva categoría.
+ * Requiere permisos de administrador.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const createCategoria = async (req, res) => {
   try {
     const nuevaCategoria = await categoriaService.createCategoria(req.body)
@@ -40,6 +59,14 @@ export const createCategoria = async (req, res) => {
   }
 }
 
+/**
+ * Actualiza una categoría existente.
+ * Requiere permisos de administrador.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const updateCategoria = async (req, res) => {
   const { id } = req.params
   try {
@@ -57,6 +84,14 @@ export const updateCategoria = async (req, res) => {
   }
 }
 
+/**
+ * Elimina una categoría.
+ * Requiere permisos de administrador.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const deleteCategoria = async (req, res) => {
   const { id } = req.params
   try {

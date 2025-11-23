@@ -1,6 +1,11 @@
 import pedidoService from '../services/pedido.service.js'
 
-// Obtener todos los pedidos
+/**
+ * Obtiene todos los pedidos con filtros opcionales.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getPedidos = async (req, res) => {
   try {
     const { page, limit, estado, id_mesa, id_cliente, from, to } = req.query
@@ -12,7 +17,12 @@ export const getPedidos = async (req, res) => {
   }
 }
 
-// Obtener un pedido por ID
+/**
+ * Obtiene un pedido por su ID.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getPedidoById = async (req, res) => {
   const { id } = req.params
   try {
@@ -27,7 +37,12 @@ export const getPedidoById = async (req, res) => {
   }
 }
 
-// Obtener pedidos del cliente autenticado
+/**
+ * Obtiene los pedidos del cliente autenticado.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getPedidosDelCliente = async (req, res) => {
   try {
     const clienteId = req.user.id
@@ -39,7 +54,12 @@ export const getPedidosDelCliente = async (req, res) => {
   }
 }
 
-// Crear un nuevo pedido
+/**
+ * Crea un nuevo pedido.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const createPedido = async (req, res) => {
   try {
     const newPedido = await pedidoService.createPedido(req.body)
@@ -54,7 +74,12 @@ export const createPedido = async (req, res) => {
   }
 }
 
-// Actualizar un pedido existente
+/**
+ * Actualiza un pedido existente.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updatePedido = async (req, res) => {
   const { id } = req.params
   try {
@@ -72,7 +97,12 @@ export const updatePedido = async (req, res) => {
   }
 }
 
-// Patch estado (staff/admin)
+/**
+ * Actualiza el estado de un pedido (staff/admin).
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updatePedidoEstado = async (req, res) => {
   const { id } = req.params
   try {
@@ -90,7 +120,12 @@ export const updatePedidoEstado = async (req, res) => {
   }
 }
 
-// Patch mesa (staff/admin)
+/**
+ * Actualiza la mesa de un pedido (staff/admin).
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updatePedidoMesa = async (req, res) => {
   const { id } = req.params
   try {
@@ -108,7 +143,12 @@ export const updatePedidoMesa = async (req, res) => {
   }
 }
 
-// Actualizar estado de pago del pedido (staff/admin)
+/**
+ * Actualiza el estado de pago de un pedido (staff/admin).
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updatePedidoPago = async (req, res) => {
   const { id } = req.params
   try {
@@ -126,7 +166,12 @@ export const updatePedidoPago = async (req, res) => {
   }
 }
 
-// Eliminar pedido
+/**
+ * Elimina un pedido.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const deletePedido = async (req, res) => {
   const { id } = req.params
   try {

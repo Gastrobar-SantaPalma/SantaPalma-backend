@@ -1,6 +1,11 @@
 import productoService from '../services/producto.service.js'
 
-// Obtener todos los productos (incluye datos de la categoría)
+/**
+ * Obtiene todos los productos con filtros opcionales.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getProductos = async (req, res) => {
   try {
     const { page, limit, category, search } = req.query
@@ -15,7 +20,12 @@ export const getProductos = async (req, res) => {
   }
 }
 
-// Obtener un producto por ID
+/**
+ * Obtiene un producto por su ID.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getProductoById = async (req, res) => {
   const { id } = req.params
   try {
@@ -30,7 +40,12 @@ export const getProductoById = async (req, res) => {
   }
 }
 
-// Crear un nuevo producto
+/**
+ * Crea un nuevo producto.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const createProducto = async (req, res) => {
   try {
     // req.body is already validated by middleware, but file handling is manual
@@ -48,7 +63,12 @@ export const createProducto = async (req, res) => {
   }
 }
 
-// Actualizar un producto existente
+/**
+ * Actualiza un producto existente.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const updateProducto = async (req, res) => {
   const { id } = req.params
   try {
@@ -63,7 +83,12 @@ export const updateProducto = async (req, res) => {
   }
 }
 
-// Eliminar un producto
+/**
+ * Elimina un producto.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const deleteProducto = async (req, res) => {
   const { id } = req.params
   try {
@@ -75,7 +100,12 @@ export const deleteProducto = async (req, res) => {
   }
 }
 
-// Calificar un producto
+/**
+ * Califica un producto.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const rateProduct = async (req, res) => {
   const { id } = req.params
   const id_usuario = req.user.id
@@ -98,7 +128,12 @@ export const rateProduct = async (req, res) => {
   }
 }
 
-// Obtener comentarios paginados
+/**
+ * Obtiene los comentarios de un producto.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const getProductComments = async (req, res) => {
   const { id } = req.params
   const { page, limit } = req.query

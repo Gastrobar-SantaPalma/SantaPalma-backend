@@ -3,8 +3,17 @@ import pedidoRepository from '../repositories/pedido.repository.js'
 import supabase from '../config/supabaseClient.js'
 import crypto from 'crypto'
 
+/**
+ * Servicio para la lógica de negocio de Productos.
+ */
 class ProductoService {
   
+  /**
+   * Obtiene productos con filtros.
+   * @param {Object} filters - Filtros de búsqueda.
+   * @returns {Promise<Object>} Resultados paginados.
+   * @throws {Error} Si la categoría no existe.
+   */
   async getProductos(filters) {
     // Validate category existence if provided
     if (filters.category) {
@@ -24,6 +33,12 @@ class ProductoService {
     return { page, limit, total: count || 0, totalPages, products: data }
   }
 
+  /**
+   * Obtiene un producto por ID.
+   * @param {number} id - ID del producto.
+   * @returns {Promise<Object>} El producto encontrado.
+   * @throws {Error} Si el producto no existe.
+   */
   async getProductoById(id) {
     const producto = await productoRepository.findById(id)
     if (!producto) throw new Error('Producto no encontrado')
@@ -39,6 +54,13 @@ class ProductoService {
     return producto
   }
 
+  /**
+   * Crea un nuevo producto.
+   * @param {Object} data - Datos del producto.
+   * @param {Object} file - Archivo de imagen (opcional).
+   * @returns {Promise<Object>} El producto creado.
+   * @throws {Error} Si el nombre ya existe o falla la subida de imagen.
+   */
   async createProducto(data, file) {
     const { nombre, descripcion, precio, id_categoria, disponible } = data
     let imagen_url = data.imagen_url
@@ -66,6 +88,14 @@ class ProductoService {
     return newProduct
   }
 
+  /**
+   * Actualiza un producto.
+   * @param {number} id - ID del producto.
+   * @param {Object} data - Datos a actualizar.
+   * @param {Object} file - Archivo de imagen (opcional).
+   * @returns {Promise<Object>} El producto actualizado.
+   * @throws {Error} Si el nombre ya existe.
+   */
   async updateProducto(id, data, file) {
     const { nombre, descripcion, precio, id_categoria, disponible } = data
     let imagen_url = data.imagen_url
@@ -94,6 +124,11 @@ class ProductoService {
     return updatedProduct
   }
 
+  /**
+   * Elimina un producto.
+   * @param {number} id - ID del producto.
+   * @returns {Promise<void>}
+   */
   async deleteProducto(id) {
     // Try to delete image first
     const existing = await productoRepository.findById(id)
@@ -104,6 +139,14 @@ class ProductoService {
     return await productoRepository.delete(id)
   }
 
+  /**
+   * Califica un producto.
+   * @param {number} productId - ID del producto.
+   * @param {number} userId - ID del usuario.
+   * @param {Object} ratingData - Datos de la calificación (puntuacion, comentario).
+   * @returns {Promise<Object>} La calificación creada o actualizada.
+   * @throws {Error} Si el usuario no ha comprado el producto o la puntuación es inválida.
+   */
   async rateProduct(productId, userId, { puntuacion, comentario }) {
     // Validate Purchase
     const orders = await pedidoRepository.findByClienteId(userId)
@@ -131,6 +174,12 @@ class ProductoService {
     })
   }
 
+  /**
+   * Obtiene comentarios de un producto.
+   * @param {number} productId - ID del producto.
+   * @param {Object} pagination - Paginación.
+   * @returns {Promise<Object>} Comentarios paginados.
+   */
   async getProductComments(productId, pagination) {
     const { data, count, page, limit } = await productoRepository.getComments(productId, pagination)
     const totalPages = Math.ceil((count || 0) / limit) || 0
@@ -139,6 +188,12 @@ class ProductoService {
 
   // --- Private Helpers ---
 
+  /**
+   * Sube una imagen al bucket.
+   * @param {Object} file - Archivo a subir.
+   * @returns {Promise<string>} URL pública de la imagen.
+   * @private
+   */
   async _uploadImage(file) {
     const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
     const original = file.originalname || 'image'
@@ -155,6 +210,12 @@ class ProductoService {
     return data?.publicUrl || null
   }
 
+  /**
+   * Elimina una imagen del bucket.
+   * @param {string} publicUrl - URL pública de la imagen.
+   * @returns {Promise<void>}
+   * @private
+   */
   async _deleteImage(publicUrl) {
     try {
       const bucket = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'

@@ -6,6 +6,13 @@ const WOMPI_KEY = process.env.WOMPI_KEY || ''
  * Crea una sesión de pago en Wompi (placeholder).
  * Si `WOMPI_KEY` está presente, aquí es donde se haría la llamada HTTP a la API de Wompi.
  * Por ahora devuelve una respuesta simulada para permitir desarrollo local.
+ * 
+ * @param {Object} params - Parámetros de pago.
+ * @param {number} params.pedidoId - ID del pedido.
+ * @param {number} params.amount - Monto del pago.
+ * @param {string} [params.currency='COP'] - Moneda.
+ * @param {Object} [params.metadata={}] - Metadatos adicionales.
+ * @returns {Promise<Object>} Datos de la transacción.
  */
 export const createPayment = async ({ pedidoId, amount, currency = 'COP', metadata = {} }) => {
   // If WOMPI_KEY is not configured, return a simulated response so dev flows keep working
@@ -79,6 +86,10 @@ export const createPayment = async ({ pedidoId, amount, currency = 'COP', metada
 /**
  * Verifica la firma del webhook usando HMAC-SHA256 con el secreto `WOMPI_SIGNATURE_SECRET`.
  * Nota: adaptar si la pasarela usa otro algoritmo o esquema.
+ * 
+ * @param {Buffer} rawBodyBuffer - Cuerpo crudo de la petición.
+ * @param {string} signatureHeader - Cabecera de firma.
+ * @returns {Object} Resultado de la verificación { ok, computed, incoming, error }.
  */
 export const verifyWebhookSignature = (rawBodyBuffer, signatureHeader) => {
   const secret = process.env.WOMPI_SIGNATURE_SECRET

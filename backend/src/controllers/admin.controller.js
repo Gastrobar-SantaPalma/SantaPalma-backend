@@ -1,6 +1,13 @@
 import usuarioService from '../services/usuario.service.js'
 
-// Create an admin user (requires an authenticated admin to call)
+/**
+ * Crea un nuevo usuario administrador.
+ * Requiere autenticación de administrador.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const createAdmin = async (req, res) => {
   try {
     const { nombre, correo, contrasena } = req.body
@@ -25,7 +32,14 @@ export const createAdmin = async (req, res) => {
   }
 }
 
-// Admin-only: change a user's role
+/**
+ * Cambia el rol de un usuario.
+ * Solo accesible por administradores.
+ * 
+ * @param {import('express').Request} req - Objeto de solicitud Express.
+ * @param {import('express').Response} res - Objeto de respuesta Express.
+ * @returns {Promise<void>}
+ */
 export const changeUserRole = async (req, res) => {
   try {
     const { id } = req.params // id_usuario

@@ -1,6 +1,11 @@
 import pagoService from '../services/pago.service.js'
 
-// POST /api/pagos/create
+/**
+ * Crea un nuevo pago para un pedido.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const createPayment = async (req, res) => {
   try {
     const { id_pedido } = req.body
@@ -18,7 +23,12 @@ export const createPayment = async (req, res) => {
   }
 }
 
-// POST /api/webhooks/wompi
+/**
+ * Maneja el webhook de Wompi para actualizaciones de estado de pago.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @returns {Promise<void>}
+ */
 export const wompiWebhook = async (req, res) => {
   try {
     const rawBody = req.body

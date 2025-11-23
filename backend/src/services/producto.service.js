@@ -154,10 +154,14 @@ class ProductoService {
     
     const validOrder = paidOrders.find(order => {
       if (!Array.isArray(order.items)) return false
-      return order.items.some(item => Number(item.id_producto) === Number(productId))
+      // Handle potential colon in productId (e.g. ":14") and type mismatch
+      const cleanProductId = String(productId).replace(/^:/, '')
+      return order.items.some(item => String(item.id_producto) === cleanProductId)
     })
 
+    // Debug log to help diagnose why validation fails
     if (!validOrder) {
+      console.warn(`[rateProduct] Validation failed for user ${userId} product ${productId}. Found ${paidOrders.length} paid orders.`)
       throw new Error('Debes comprar y pagar el producto para calificarlo')
     }
 

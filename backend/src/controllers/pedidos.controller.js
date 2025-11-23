@@ -62,7 +62,20 @@ export const getPedidosDelCliente = async (req, res) => {
  */
 export const createPedido = async (req, res) => {
   try {
-    const newPedido = await pedidoService.createPedido(req.body)
+    const data = { ...req.body }
+    
+    // Inject id_cliente from token if not provided, regardless of role
+    if (req.user && !data.id_cliente) {
+      // Try to get ID from various possible payload fields
+      const userId = req.user.id || req.user.id_usuario || req.user.sub || req.user.user_id
+      if (userId) {
+        data.id_cliente = userId
+      } else {
+        console.warn('[createPedido] Could not find user ID in token payload:', req.user)
+      }
+    }
+
+    const newPedido = await pedidoService.createPedido(data)
     res.status(201).json(newPedido)
   } catch (err) {
     console.error('Error al crear pedido:', err)

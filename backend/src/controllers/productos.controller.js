@@ -108,7 +108,9 @@ export const deleteProducto = async (req, res) => {
  */
 export const rateProduct = async (req, res) => {
   const { id } = req.params
-  const id_usuario = req.user.id
+
+  // Try to get ID from various possible payload fields
+  const id_usuario = req.user.id || req.user.id_usuario || req.user.sub || req.user.user_id
   
   try {
     const result = await productoService.rateProduct(id, id_usuario, req.body)

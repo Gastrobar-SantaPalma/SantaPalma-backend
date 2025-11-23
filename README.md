@@ -106,16 +106,17 @@ npm test
 | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/signup` | Registrar un nuevo cliente | Público | `{ nombre, correo, contrasena }` |
 | `POST` | `/login` | Iniciar sesión | Público | `{ correo, contrasena }` |
+| `GET` | `/me` | Obtener datos del usuario actual | Token | - |
 
 ### Usuarios (`/api/usuarios`)
 | Método | Endpoint | Descripción | Auth | Body |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Listar todos los usuarios | Público* | - |
-| `GET` | `/:id` | Obtener detalle de usuario | Público* | - |
+| `GET` | `/` | Listar todos los usuarios | Token | - |
+| `GET` | `/:id` | Obtener detalle de usuario | Token | - |
 | `POST` | `/` | Crear usuario (Admin) | Público* | `{ nombre, correo, contrasena, rol }` |
 | `PUT` | `/:id` | Actualizar usuario | Token | `{ nombre, correo, rol }` |
 | `DELETE` | `/:id` | Eliminar usuario | Token | - |
-> (*) Nota: Algunos endpoints de usuarios están públicos por facilidad de desarrollo, pero deberían protegerse en producción.
+> (*) Nota: El endpoint de creación de usuarios sigue público para facilitar el registro inicial o admin, pero debería protegerse en producción.
 
 ### Admin (`/api/admin`)
 | Método | Endpoint | Descripción | Auth | Body |

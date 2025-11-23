@@ -6,7 +6,7 @@ import mesasRoutes from './routes/mesas.route.js'
 //import paymentsRoutes from './routes/payments.routes.js'
 //import paymentsController from './controllers/payments.controller.js'
 import pagosRoutes from './routes/pagos.routes.js'
-import pagosController from './controllers/pagos.controller.js'
+import { wompiWebhook } from './controllers/pagos.controller.js'
 import pedidosRoutes from './routes/pedidos.routes.js'
 import productosRoutes from './routes/productos.routes.js'
 import usuariosRoutes from './routes/usuarios.routes.js'
@@ -55,7 +55,7 @@ const corsOptions = {
 app.use(cors(corsOptions))
 
 // Mount webhook route with raw body parser BEFORE express.json so we can verify signatures
-app.post('/api/webhooks/wompi', express.raw({ type: 'application/json' }), pagosController.wompiWebhook)
+app.post('/api/webhooks/wompi', express.raw({ type: 'application/json' }), wompiWebhook)
 
 // Note: avoid app.options('*', ...) because path-to-regexp rejects '*'.
 // app.use(cors(corsOptions)) is sufficient to handle preflight requests.

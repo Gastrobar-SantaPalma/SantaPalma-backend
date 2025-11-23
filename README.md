@@ -99,34 +99,90 @@ Para ejecutar todos los tests:
 npm test
 ```
 
-## Endpoints principales (resumen)
+## Endpoints principales (Referencia API)
 
-### Auth
-- `POST /api/auth/signup` — Registrar cliente.
-- `POST /api/auth/login` — Iniciar sesión.
+### Autenticación (`/api/auth`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/signup` | Registrar un nuevo cliente | Público | `{ nombre, correo, contrasena }` |
+| `POST` | `/login` | Iniciar sesión | Público | `{ correo, contrasena }` |
 
-### Usuarios
-- `GET /api/usuarios` — Listar usuarios (Admin).
-- `GET /api/usuarios/:id` — Obtener usuario.
-- `PUT /api/usuarios/:id` — Actualizar usuario.
+### Usuarios (`/api/usuarios`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Listar todos los usuarios | Público* | - |
+| `GET` | `/:id` | Obtener detalle de usuario | Público* | - |
+| `POST` | `/` | Crear usuario (Admin) | Público* | `{ nombre, correo, contrasena, rol }` |
+| `PUT` | `/:id` | Actualizar usuario | Token | `{ nombre, correo, rol }` |
+| `DELETE` | `/:id` | Eliminar usuario | Token | - |
+> (*) Nota: Algunos endpoints de usuarios están públicos por facilidad de desarrollo, pero deberían protegerse en producción.
 
-### Productos
-- `GET /api/productos` — Listar productos (filtros: page, limit, category, search).
-- `POST /api/productos` — Crear producto (Admin).
-- `PUT /api/productos/:id` — Actualizar producto (Admin).
+### Admin (`/api/admin`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/create` | Crear otro administrador | Admin | `{ nombre, correo, contrasena }` |
+| `PUT` | `/users/:id/role` | Cambiar rol de usuario | Admin | `{ rol }` |
 
-### Pedidos
-- `GET /api/pedidos` — Listar pedidos.
-- `POST /api/pedidos` — Crear pedido.
-- `PUT /api/pedidos/:id` — Actualizar pedido.
-- `PATCH /api/pedidos/:id/estado` — Cambiar estado.
+### Productos (`/api/productos`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Listar productos (filtros: `page`, `limit`, `category`, `search`) | Token | - |
+| `GET` | `/:id` | Obtener producto por ID | Público | - |
+| `POST` | `/` | Crear producto | Admin | `multipart/form-data` (incluye `image`) |
+| `PUT` | `/:id` | Actualizar producto | Admin | `multipart/form-data` |
+| `DELETE` | `/:id` | Eliminar producto | Admin | - |
+| `POST` | `/:id/calificacion` | Calificar producto | Token | `{ puntuacion, comentario }` |
+| `GET` | `/:id/comentarios` | Ver comentarios | Público | - |
 
-### Pagos
-- `POST /api/pagos/transaction` — Iniciar transacción Wompi.
-- `POST /api/pagos/webhook` — Webhook para eventos de Wompi.
+### Categorías (`/api/categorias`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Listar categorías | Público | - |
+| `GET` | `/:id` | Obtener categoría | Público | - |
+| `POST` | `/` | Crear categoría | Admin | `{ nombre, descripcion }` |
+| `PUT` | `/:id` | Actualizar categoría | Admin | `{ nombre, descripcion }` |
+| `DELETE` | `/:id` | Eliminar categoría | Admin | - |
 
-### Auditoría
-- `GET /api/auditoria` — Ver historial de eventos (Admin).
+### Mesas (`/api/mesas`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Listar mesas | Público | - |
+| `GET` | `/:id` | Obtener mesa | Público | - |
+| `POST` | `/` | Crear mesa | Token | `{ numero, capacidad, ubicacion }` |
+| `PUT` | `/:id` | Actualizar mesa | Token | `{ numero, capacidad, ubicacion }` |
+| `DELETE` | `/:id` | Eliminar mesa | Token | - |
+| `POST` | `/:id/generate-qr` | Generar QR (PNG/PDF) | Admin | Query: `?format=pdf` |
+
+### Pedidos (`/api/pedidos`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Listar todos los pedidos | Staff/Admin | - |
+| `GET` | `/cliente/mis-pedidos` | Ver mis pedidos | Token | - |
+| `GET` | `/:id` | Ver detalle de pedido | Token | - |
+| `POST` | `/` | Crear pedido | Token | `{ id_mesa, items: [{id_producto, cantidad}] }` |
+| `PUT` | `/:id` | Modificar pedido | Token | `{ items, estado }` |
+| `DELETE` | `/:id` | Cancelar/Eliminar pedido | Staff/Admin | - |
+| `PATCH` | `/:id/estado` | Cambiar estado (pendiente -> preparando...) | Staff/Admin | `{ estado }` |
+| `PATCH` | `/:id/mesa` | Cambiar mesa de pedido | Staff/Admin | `{ id_mesa }` |
+| `PATCH` | `/:id/pago` | Actualizar estado de pago | Staff/Admin | `{ pago: 'pagado' }` |
+
+### Pagos (`/api/pagos`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/create` | Iniciar transacción Wompi | Token | `{ amount_in_cents, currency, customer_email, reference }` |
+| `POST` | `/webhooks/wompi` | Webhook de Wompi | Público | (Payload de Wompi) |
+
+### Auditoría (`/api/auditoria`)
+| Método | Endpoint | Descripción | Auth | Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Ver historial de eventos | Admin | Query: `page`, `limit`, `id_pedido` |
+
+### Debug (`/api/debug`)
+> **Nota:** Endpoints solo para desarrollo.
+| Método | Endpoint | Descripción | Auth |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/pedidos/:id` | Ver pedido raw | Público |
+| `POST` | `/pedidos/:id/update` | Forzar update | Público |
 
 ## Autenticación y roles
 - El proyecto usa JWT firmado con `JWT_SECRET`.

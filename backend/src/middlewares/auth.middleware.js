@@ -1,5 +1,11 @@
 import jwt from 'jsonwebtoken'
 
+/**
+ * Middleware para verificar el token JWT.
+ * @param {import('express').Request} req - Objeto de solicitud de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @param {import('express').NextFunction} next - Función para pasar al siguiente middleware.
+ */
 export const authMiddleware = (req, res, next) => {
   try {
     const auth = req.headers.authorization || ''
@@ -16,6 +22,11 @@ export const authMiddleware = (req, res, next) => {
   }
 }
 
+/**
+ * Middleware para requerir un rol específico.
+ * @param {string} role - Rol requerido.
+ * @returns {Function} Middleware de Express.
+ */
 export const requireRole = (role) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'No autenticado' })
   if (req.user.rol !== role) {
@@ -25,6 +36,11 @@ export const requireRole = (role) => (req, res, next) => {
   next()
 }
 
+/**
+ * Middleware para requerir cualquiera de los roles especificados.
+ * @param {...string} roles - Roles permitidos.
+ * @returns {Function} Middleware de Express.
+ */
 export const requireAnyRole = (...roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'No autenticado' })
   if (!roles.includes(req.user.rol)) {

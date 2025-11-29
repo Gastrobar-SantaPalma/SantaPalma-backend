@@ -1,7 +1,7 @@
 import Joi from 'joi'
 
 export const createPedidoSchema = Joi.object({
-  id_cliente: Joi.string().uuid().allow(null),
+  id_cliente: Joi.number().integer().positive().allow(null),
   id_mesa: Joi.number().integer().positive().allow(null),
   items: Joi.array().items(
     Joi.object({
@@ -14,7 +14,7 @@ export const createPedidoSchema = Joi.object({
 }).or('id_cliente', 'id_mesa')
 
 export const updatePedidoSchema = Joi.object({
-  id_cliente: Joi.string().uuid().allow(null),
+  id_cliente: Joi.number().integer().positive().allow(null),
   id_mesa: Joi.number().integer().positive().allow(null),
   estado: Joi.string().valid('pendiente', 'preparando', 'listo', 'entregado', 'cancelado'),
   pago: Joi.string().valid('pagado', 'no_pagado'),

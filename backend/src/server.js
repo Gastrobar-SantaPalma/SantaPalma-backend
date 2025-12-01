@@ -14,6 +14,8 @@ import authRoutes from './routes/auth.routes.js'
 import categoriasRoutes from './routes/categorias.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import debugRoutes from './routes/debug.routes.js'
+import wompiRoutes from './routes/wompi.routes.js'
+
 
 /**
  * Configuración e inicialización del servidor Express.
@@ -56,8 +58,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 
-// Mount webhook route with raw body parser BEFORE express.json so we can verify signatures
-app.post('/api/webhooks/wompi', express.raw({ type: 'application/json' }), wompiWebhook)
+// Necesario para Webhook de Wompi: recibir raw body
+app.use('/api/wompi/webhook', express.raw({ type: 'application/json' }))
+
 
 // Note: avoid app.options('*', ...) because path-to-regexp rejects '*'.
 // app.use(cors(corsOptions)) is sufficient to handle preflight requests.
@@ -72,6 +75,8 @@ app.use('/api/productos', productosRoutes)
 app.use('/api/categorias', categoriasRoutes)
 app.use('/api/usuarios', usuariosRoutes)
 app.use('/api/auth', authRoutes)
+app.use('/api/wompi', wompiRoutes)
+
 app.use('/api/admin', adminRoutes)
 // Debug routes (local only) - no auth. Remove before deploying.
 app.use('/api/debug', debugRoutes)

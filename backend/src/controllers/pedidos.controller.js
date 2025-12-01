@@ -63,6 +63,7 @@ export const getPedidosDelCliente = async (req, res) => {
 export const createPedido = async (req, res) => {
   try {
     const data = { ...req.body }
+    console.log("Pedido recibido:", req.body);
     
     // Inject id_cliente from token if not provided, regardless of role
     if (req.user && !data.id_cliente) {

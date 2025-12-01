@@ -138,17 +138,38 @@ export async function webhookWompi(req, res) {
       })
       .eq("id_pago", pago.id_pago)
 
-    // 3️⃣ Si la TX está aprobada, marcar pedido como pagado
+    // 3️⃣ Si la TX está aprobada, marcar pedido(s) como pagado
     if (String(status).toUpperCase() === "APPROVED") {
-      const { error: pedidoErr } = await supabase
+      // 👇 NUEVO: Obtener el id_cliente del pedido
+      const { data: pedidoData, error: pedidoFetchErr } = await supabase
+        .from("pedidos")
+        .select("id_cliente")
+        .eq("id_pedido", id_pedido)
+        .single()
+
+      if (pedidoFetchErr) {
+        console.error("❌ Error obteniendo pedido:", pedidoFetchErr)
+        return res.status(500).json({ error: "Error obteniendo pedido" })
+      }
+
+      const id_cliente = pedidoData?.id_cliente
+
+      if (!id_cliente) {
+        console.error("❌ No se encontró id_cliente para el pedido:", id_pedido)
+        return res.status(500).json({ error: "No se encontró cliente" })
+      }
+
+      // 👇 NUEVO: Actualizar TODOS los pedidos no pagados del cliente
+      const { error: pedidoErr, count } = await supabase
         .from("pedidos")
         .update({ pago: "pagado" })
-        .eq("id_pedido", id_pedido)
+        .eq("id_cliente", id_cliente)
+        .eq("pago", "no_pagado")
 
       if (pedidoErr) {
-        console.error("❌ Error actualizando pedido:", pedidoErr)
+        console.error("❌ Error actualizando pedidos:", pedidoErr)
       } else {
-        console.log("💰 Pedido marcado como pagado:", id_pedido)
+        console.log(`💰 ${count || 0} pedido(s) marcado(s) como pagado para cliente ${id_cliente}`)
       }
     }
 

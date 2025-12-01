@@ -92,8 +92,11 @@ class PagoService {
     }
 
     // 4. Determinar estado
-    const status = payload?.data?.object?.payment?.status || payload?.data?.object?.status || null
-    const transactionId = payload?.data?.object?.payment?.id || payload?.data?.object?.payment?.transaction_id || payload?.data?.object?.payment?.transaction || null
+    // 📌 Ajustado a Webhook de pruebas actuales de Wompi
+    const tx = payload?.data?.transaction || payload?.data?.object?.transaction || payload?.data?.object?.payment || null
+
+    const status = tx?.status || null
+    const transactionId = tx?.id || null
 
     // 5. Actualizar Pago (Idempotencia)
     if (transactionId) {
@@ -106,6 +109,7 @@ class PagoService {
 
       if (existingPago) {
         await pagoRepository.update(existingPago.id_pago, {
+          transaction_id: transactionId,
           status: status ? String(status).toLowerCase() : null,
           raw: payload
         })
@@ -140,23 +144,27 @@ class PagoService {
       const lastPago = await pagoRepository.findLastByPedidoId(pedidoId)
       if (lastPago) {
         await pagoRepository.update(lastPago.id_pago, {
+          transaction_id: transactionId,
           status: status ? String(status).toLowerCase() : null,
           raw: payload
         })
       }
     }
 
-    // 6. Actualizar Pedido
+   // 6. Actualizar Pedido
     const updates = {}
     if (['APPROVED', 'approved', 'FINALIZED', 'finalized', 'completed'].includes(status)) {
       updates.pago = 'pagado'
+      updates.estado = 'pagado' // 👈🔥 ESTO ES LO QUE FALTABA
     } else if (['DECLINED', 'declined', 'FAILED'].includes(status)) {
       updates.pago = 'no_pagado'
+      updates.estado = 'pendiente' // opcional
     }
 
-    if (Object.keys(updates).length > 0) {
-      await pedidoRepository.update(pedidoId, updates)
-    }
+    console.log("🔄 Actualizando Pedido:", pedidoId, updates)
+    await pedidoRepository.update(pedidoId, updates)
+
+
 
     return { ok: true, updated: true }
   }

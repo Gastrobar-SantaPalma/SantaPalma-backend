@@ -4,6 +4,7 @@ import usuarioRepository from '../repositories/usuario.repository.js'
 import mesaRepository from '../repositories/mesa.repository.js'
 import auditoriaService from './auditoria.service.js'
 import { calcularTotal } from '../utils/calculateTotal.js'
+import supabase from "../config/supabaseClient.js"
 
 /**
  * Servicio para la lógica de negocio de Pedidos.
@@ -79,9 +80,50 @@ class PedidoService {
    * @param {number} clienteId - ID del cliente.
    * @returns {Promise<Array<Object>>} Lista de pedidos.
    */
+  
+
   async getPedidosByCliente(clienteId) {
-    return await pedidoRepository.findByClienteId(clienteId)
+  const { data, error } = await supabase
+    .from("pedidos")
+    .select(`
+      id_pedido,
+      id_cliente,
+      id_mesa,
+      estado,
+      pago,
+      fecha_pedido,
+      total,
+      items
+    `)
+    .eq("id_cliente", clienteId)
+    .order("fecha_pedido", { ascending: false });
+
+  if (error) {
+    console.error("[Supabase] Error al obtener pedidos del cliente:", error);
+    throw new Error("Error obteniendo pedidos");
   }
+
+  // 👇 AGREGAR ESTA LÍNEA - Enriquecer items con nombres de productos
+  await this._enrichPedidosWithProductNames(data);
+
+  return data.map(p => ({
+    ...p,
+    id: p.id_pedido,
+    // Asegurar que items tenga la estructura correcta
+    items: Array.isArray(p.items) ? p.items.map(item => ({
+      ...item,
+      product: {
+        id_producto: item.id_producto,
+        nombre: item.nombre,
+        precio: item.precio,
+        imagen_url: item.imagen_url || null
+      }
+    })) : []
+  }));
+}
+
+
+
 
   /**
    * Crea un nuevo pedido.

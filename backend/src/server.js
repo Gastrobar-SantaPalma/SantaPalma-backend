@@ -1,6 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: '../.env' });
+
+
 import express from 'express'
 import cors from 'cors'
-import morgan from 'morgan'
+//import morgan from 'morgan'
 import auditoriaRoutes from './routes/auditoria.routes.js'
 import mesasRoutes from './routes/mesas.route.js'
 //import paymentsRoutes from './routes/payments.routes.js'
@@ -14,8 +18,9 @@ import authRoutes from './routes/auth.routes.js'
 import categoriasRoutes from './routes/categorias.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import debugRoutes from './routes/debug.routes.js'
-import wompiRoutes from './routes/wompi.routes.js'
-
+import calificacionesRoutes from './routes/calificaciones.routes.js'
+import reportesRoutes from './routes/reportes.routes.js'
+import { pedidosCountByDay, ordersByStatus } from './controllers/reportes.controller.js'
 
 /**
  * Configuración e inicialización del servidor Express.
@@ -24,7 +29,7 @@ import wompiRoutes from './routes/wompi.routes.js'
 const app = express()
 
 // Request logging
-app.use(morgan('dev'))
+
 
 // CORS configuration
 // Accept a comma-separated list in CLIENT_URLS or a single CLIENT_URL.
@@ -66,6 +71,11 @@ app.use('/api/wompi/webhook', express.raw({ type: 'application/json' }))
 // app.use(cors(corsOptions)) is sufficient to handle preflight requests.
 app.use(express.json())
 
+// Quick compatibility endpoints for admin frontend (mount directly so order doesn't block them)
+app.get('/api/pedidos/count-by-day', pedidosCountByDay)
+app.get('/api/pedidos/status-count', ordersByStatus)
+app.get('/api/pedidos/status', ordersByStatus)
+
 app.use('/api/mesas', mesasRoutes)
 //app.use('/api/payments', paymentsRoutes)
 app.use('/api/auditoria', auditoriaRoutes)
@@ -80,6 +90,9 @@ app.use('/api/wompi', wompiRoutes)
 app.use('/api/admin', adminRoutes)
 // Debug routes (local only) - no auth. Remove before deploying.
 app.use('/api/debug', debugRoutes)
+app.use("/api/calificaciones", calificacionesRoutes);
+app.use('/api/reportes', reportesRoutes)
+app.use('/api/ventas', reportesRoutes)
 
 
 // Export app for testing; only listen when not in test environment

@@ -9,6 +9,7 @@ import {
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import { createCategoriaSchema, updateCategoriaSchema } from '../schemas/categoria.schema.js'
+import { topCategories } from '../controllers/reportes.controller.js'
 
 const router = Router()
 
@@ -19,6 +20,16 @@ const router = Router()
  */
 router.get('/', getCategorias)
 
+// Top categories (used by admin frontend)
+router.get('/top', topCategories)
+
+
+/**
+ * @route POST /api/categorias
+ * @desc Crear una nueva categoría
+ * @access Private (Admin)
+ */
+
 /**
  * @route GET /api/categorias/:id
  * @desc Obtener una categoría por ID
@@ -26,11 +37,7 @@ router.get('/', getCategorias)
  */
 router.get('/:id', getCategoriaById)
 
-/**
- * @route POST /api/categorias
- * @desc Crear una nueva categoría
- * @access Private (Admin)
- */
+
 router.post(
   '/',
   authMiddleware,

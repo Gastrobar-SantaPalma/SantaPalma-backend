@@ -12,11 +12,15 @@ import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js'
 import upload from '../middlewares/upload.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import { createProductoSchema, updateProductoSchema, rateProductSchema } from '../schemas/producto.schema.js'
+import { topProducts } from '../controllers/reportes.controller.js'
 
 const router = express.Router()
 
 // Catalog endpoint: require authenticated user according to HU1.1
 router.get('/', authMiddleware, getProductos)
+
+// Top products (alias used by admin front)
+router.get('/top', topProducts)
 router.get('/:id', getProductoById)
 
 // Rating endpoints

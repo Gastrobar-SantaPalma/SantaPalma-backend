@@ -1,0 +1,26 @@
+import socialService from './social.service.js'
+
+
+export const getActiveUsers = async (req, res) => {
+  try {
+    const activeUsers = await socialService.getActiveUsers()
+    res.json(activeUsers)
+  } catch (error) {
+    console.error('Error al obtener usuarios activos:', error)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+}
+
+export async function heartbeat(req, res) {
+  try {
+    const { user_id, table_id } = req.body
+
+    if (!user_id) return res.status(400).json({ error: 'user_id es requerido' })
+
+    await socialService.heartbeat({ user_id, table_id: table_id ?? null })
+    return res.json({ ok: true })
+  } catch (error) {
+    console.error('Error en heartbeat:', error)
+    return res.status(500).json({ error: 'Error interno del servidor' })
+  }
+}

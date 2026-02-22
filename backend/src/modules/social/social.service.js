@@ -1,0 +1,68 @@
+import supabase from '../../config/supabaseClient.js'
+
+
+class SocialService {
+  /**
+   * Obtiene presencia de usuarios y calcula si están en línea.
+   * @returns {Promise<Array<{user_id:number,nombre:string|null,foto:string|null,isOnline:boolean}>>}
+   */
+  async getActiveUsers() {
+    const { data: presenceRows, error: presenceError } = await supabase
+      .from('user_presence')
+      .select('user_id, last_heartbeat_at')
+      .order('last_heartbeat_at', { ascending: false })
+
+    if (presenceError) throw new Error(presenceError.message)
+
+    const latestPresenceByUser = new Map()
+    for (const row of presenceRows || []) {
+      if (!latestPresenceByUser.has(row.user_id)) {
+        latestPresenceByUser.set(row.user_id, row)
+      }
+    }
+
+    const userIds = [...latestPresenceByUser.keys()]
+    if (!userIds.length) return []
+
+    const { data: users, error: usersError } = await supabase
+      .from('usuarios')
+      .select('id_usuario, nombre')
+      .in('id_usuario', userIds)
+
+    if (usersError) throw new Error(usersError.message)
+
+    const usersById = new Map((users || []).map(user => [user.id_usuario, user]))
+    const nowMs = Date.now()
+
+    return userIds.map(userId => {
+      const presence = latestPresenceByUser.get(userId)
+      const user = usersById.get(userId)
+      const lastHeartbeat = presence?.last_heartbeat_at ? new Date(presence.last_heartbeat_at).getTime() : 0
+
+      return {
+        user_id: userId,
+        nombre: user?.nombre ?? null,
+        foto: user?.foto ?? null,
+        isOnline: nowMs - lastHeartbeat < 300000
+      }
+    })
+  }
+
+    async heartbeat({ user_id, table_id }) {
+    const { error } = await supabase
+      .from('user_presence')
+      .upsert(
+        {
+          user_id,
+          table_id,
+          last_heartbeat_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      )
+
+    if (error) throw new Error(error.message)
+  }
+
+}
+
+export default new SocialService()
